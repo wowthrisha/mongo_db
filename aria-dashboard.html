@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARIA — MongoDB Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   RESET & ROOT
+═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#030712;
+  --bg2:#060d1a;
+  --bg3:#091224;
+  --s1:#0c1830;
+  --s2:#0f2040;
+  --s3:#122548;
+  --b1:rgba(0,180,255,0.08);
+  --b2:rgba(0,180,255,0.16);
+  --b3:rgba(0,180,255,0.28);
+  --cyan:#00b4ff;
+  --cyan2:#00d4ff;
+  --cyan-d:rgba(0,180,255,0.12);
+  --green:#00ff9d;
+  --green-d:rgba(0,255,157,0.1);
+  --amber:#ffb800;
+  --amber-d:rgba(255,184,0,0.1);
+  --red:#ff3c5a;
+  --red-d:rgba(255,60,90,0.1);
+  --violet:#a855f7;
+  --violet-d:rgba(168,85,247,0.1);
+  --pink:#f72585;
+  --pink-d:rgba(247,37,133,0.1);
+  --t1:#c8e0ff;
+  --t2:#6a8db0;
+  --t3:#2d4a6a;
+  --mono:'Share Tech Mono',monospace;
+  --head:'Rajdhani',sans-serif;
+  --body:'Exo 2',sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--body);background:var(--bg);color:var(--t1);cursor:default}
+
+/* SCANLINE OVERLAY */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,180,255,0.012) 2px,rgba(0,180,255,0.012) 4px);
+  pointer-events:none;z-index:9999;animation:scanmove 8s linear infinite;
+}
+@keyframes scanmove{0%{background-position:0 0}100%{background-position:0 100px}}
+
+/* AMBIENT GLOW */
+.glow-orb{position:fixed;border-radius:50%;pointer-events:none;filter:blur(80px);z-index:0}
+.g1{width:600px;height:400px;background:rgba(0,180,255,0.04);top:-100px;left:0}
+.g2{width:500px;height:400px;background:rgba(0,255,157,0.03);bottom:0;right:100px}
+.g3{width:300px;height:300px;background:rgba(168,85,247,0.04);top:200px;right:0}
+
+/* ═══════════════════════════════════════════
+   LOGIN SCREEN
+═══════════════════════════════════════════ */
+#loginScreen{
+  position:fixed;inset:0;z-index:500;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);
+}
+.login-wrap{position:relative;z-index:1;width:440px}
+.login-corner{position:absolute;width:16px;height:16px;border-color:var(--cyan);border-style:solid}
+.login-corner.tl{top:-8px;left:-8px;border-width:2px 0 0 2px}
+.login-corner.tr{top:-8px;right:-8px;border-width:2px 2px 0 0}
+.login-corner.bl{bottom:-8px;left:-8px;border-width:0 0 2px 2px}
+.login-corner.br{bottom:-8px;right:-8px;border-width:0 2px 2px 0}
+.login-card{
+  background:var(--bg2);
+  border:1px solid var(--b2);
+  padding:40px;
+  animation:fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  position:relative;overflow:hidden;
+}
+.login-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  animation:shimmer 3s ease infinite;
+}
+@keyframes shimmer{0%,100%{opacity:0.3}50%{opacity:1}}
+@keyframes fade-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+
+.login-sys{
+  font-family:var(--mono);font-size:10px;color:var(--cyan);
+  letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;
+  display:flex;align-items:center;gap:8px;
+}
+.login-sys::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink 1.2s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.login-title{font-family:var(--head);font-size:42px;font-weight:700;letter-spacing:4px;line-height:1;margin-bottom:4px;color:#fff}
+.login-title span{color:var(--cyan)}
+.login-sub{font-family:var(--mono);font-size:11px;color:var(--t2);letter-spacing:1px;margin-bottom:32px}
+
+.tab-row{display:flex;gap:0;background:var(--bg3);border:1px solid var(--b1);margin-bottom:24px;border-radius:2px}
+.ltab{flex:1;padding:10px;text-align:center;border:none;background:transparent;color:var(--t2);font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all 0.2s;border-bottom:2px solid transparent}
+.ltab.on{color:var(--cyan);border-bottom-color:var(--cyan);background:var(--b1)}
+
+.lfield{margin-bottom:16px}
+.llabel{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--t2);text-transform:uppercase;margin-bottom:6px;display:block}
+.linput{
+  width:100%;padding:11px 14px;
+  background:var(--bg3);border:1px solid var(--b2);
+  color:var(--t1);font-family:var(--mono);font-size:13px;outline:none;
+  transition:all 0.2s;border-radius:1px;
+}
+.linput:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,180,255,0.08);background:var(--s1)}
+.linput::placeholder{color:var(--t3)}
+.lbtn{
+  width:100%;padding:13px;border:1px solid var(--cyan);
+  background:linear-gradient(135deg,rgba(0,180,255,0.15),rgba(0,180,255,0.05));
+  color:var(--cyan);font-family:var(--head);font-size:16px;font-weight:700;
+  letter-spacing:3px;cursor:pointer;transition:all 0.25s;text-transform:uppercase;
+  margin-top:4px;position:relative;overflow:hidden;
+}
+.lbtn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--cyan),var(--cyan2));opacity:0;transition:opacity 0.2s}
+.lbtn:hover::before{opacity:0.12}
+.lbtn:hover{box-shadow:0 0 20px rgba(0,180,255,0.25);transform:translateY(-1px)}
+.lerr{font-family:var(--mono);font-size:11px;color:var(--red);min-height:18px;margin-top:10px;text-align:center}
+.demo-creds{
+  margin-top:20px;padding:12px 14px;
+  background:var(--bg3);border:1px solid var(--b1);
+  font-family:var(--mono);font-size:11px;color:var(--t2);line-height:1.8;
+}
+.demo-creds span{color:var(--green)}
+
+/* ═══════════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════════ */
+#app{display:none;position:fixed;inset:0;flex-direction:column;z-index:1}
+#app.on{display:flex}
+
+/* TOPBAR */
+.topbar{
+  height:52px;flex-shrink:0;display:flex;align-items:center;
+  padding:0 20px;gap:0;
+  background:rgba(3,7,18,0.92);
+  border-bottom:1px solid var(--b2);
+  backdrop-filter:blur(20px);
+  position:relative;z-index:100;
+}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0.4}
+.tb-logo{font-family:var(--head);font-size:22px;font-weight:700;letter-spacing:4px;color:#fff;margin-right:24px}
+.tb-logo span{color:var(--cyan)}
+.tb-nav{display:flex;gap:0;border-left:1px solid var(--b1)}
+.tnav{
+  display:flex;align-items:center;gap:7px;
+  padding:0 16px;height:52px;border:none;background:transparent;
+  color:var(--t2);font-family:var(--head);font-size:13px;font-weight:600;
+  letter-spacing:1px;cursor:pointer;transition:all 0.2s;
+  border-right:1px solid var(--b1);text-transform:uppercase;
+  border-bottom:2px solid transparent;position:relative;
+}
+.tnav:hover{color:var(--t1);background:var(--b1)}
+.tnav.on{color:var(--cyan);background:var(--cyan-d);border-bottom-color:var(--cyan)}
+.tnav .ni{font-size:14px}
+.tnav .nbadge{
+  background:var(--cyan);color:var(--bg);
+  font-family:var(--mono);font-size:9px;font-weight:700;
+  padding:1px 5px;border-radius:1px;min-width:18px;text-align:center;
+}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.db-status{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:10px;color:var(--t2);
+  padding:4px 10px;border:1px solid var(--b1);
+  background:var(--bg3);
+}
+.dbd{width:6px;height:6px;border-radius:50%;background:var(--amber);transition:all 0.3s}
+.dbd.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dbd.off{background:var(--red)}
+.tb-clock{font-family:var(--mono);font-size:12px;color:var(--cyan);padding:4px 12px;border:1px solid var(--b2)}
+.user-chip{display:flex;align-items:center;gap:8px;padding:4px 12px;border:1px solid var(--b2);background:var(--bg3);font-family:var(--head);font-size:13px;font-weight:600}
+.uav{width:24px;height:24px;background:linear-gradient(135deg,var(--cyan),var(--green));display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--bg);border-radius:50%}
+.logout{padding:4px 12px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--head);font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase}
+.logout:hover{border-color:var(--red);color:var(--red)}
+
+/* BODY */
+.app-body{flex:1;display:flex;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{
+  width:220px;flex-shrink:0;
+  background:rgba(6,13,26,0.8);
+  border-right:1px solid var(--b2);
+  padding:16px 0;overflow-y:auto;
+  display:flex;flex-direction:column;gap:2px;
+  backdrop-filter:blur(20px);
+}
+.sg{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--t3);padding:12px 16px 4px;text-transform:uppercase;border-top:1px solid var(--b1);margin-top:6px}
+.sg:first-child{border-top:none;margin-top:0}
+.sbtn{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 16px;border:none;background:transparent;
+  color:var(--t2);font-family:var(--body);font-size:12px;font-weight:600;
+  text-align:left;cursor:pointer;transition:all 0.18s;width:100%;
+  border-left:2px solid transparent;
+}
+.sbtn:hover{background:var(--b1);color:var(--t1);border-left-color:var(--cyan)}
+.sbtn.on{background:var(--cyan-d);color:var(--cyan);border-left-color:var(--cyan)}
+.sbtn .si{width:24px;height:24px;border-radius:2px;background:var(--bg3);display:grid;place-items:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)}
+.sbtn .sc{margin-left:auto;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:1px}
+
+/* MAIN CONTENT */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+/* PANEL */
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.on{display:flex}
+
+/* PANEL HEADER */
+.ph{
+  padding:20px 24px 0;flex-shrink:0;
+  display:flex;align-items:flex-start;justify-content:space-between;
+}
+.ph-left{}
+.ph-title{font-family:var(--head);font-size:26px;font-weight:700;letter-spacing:2px;color:#fff;line-height:1}
+.ph-sub{font-family:var(--mono);font-size:11px;color:var(--t2);margin-top:4px;letter-spacing:0.5px}
+.ph-badge{font-family:var(--mono);font-size:11px;color:var(--cyan);padding:4px 12px;border:1px solid var(--b2);background:var(--cyan-d);letter-spacing:1px}
+
+/* ACTION BUTTONS */
+.action-bar{
+  display:flex;gap:8px;padding:16px 24px 0;flex-shrink:0;flex-wrap:wrap;
+}
+.ab{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 16px;border:1px solid;cursor:pointer;
+  font-family:var(--head);font-size:13px;font-weight:600;letter-spacing:1px;
+  transition:all 0.2s;text-transform:uppercase;position:relative;overflow:hidden;
+  background:transparent;
+}
+.ab::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity 0.2s;background:currentColor}
+.ab:hover::before{opacity:0.08}
+.ab:hover{transform:translateY(-1px);filter:brightness(1.2)}
+.ab:active{transform:none}
+.ab.c{color:var(--cyan);border-color:rgba(0,180,255,0.35)}
+.ab.r{color:var(--green);border-color:rgba(0,255,157,0.3)}
+.ab.u{color:var(--amber);border-color:rgba(255,184,0,0.3)}
+.ab.d{color:var(--red);border-color:rgba(255,60,90,0.3)}
+.ab.s{color:var(--violet);border-color:rgba(168,85,247,0.3)}
+.ab.p{color:var(--pink);border-color:rgba(247,37,133,0.3)}
+.ab.all{color:var(--t1);border-color:var(--b2)}
+
+/* CONTENT SPLIT */
+.content-split{flex:1;display:flex;overflow:hidden;margin-top:16px;gap:0}
+.left-col{
+  width:360px;flex-shrink:0;
+  overflow-y:auto;padding:0 12px 20px 24px;
+  border-right:1px solid var(--b1);
+}
+.left-col::-webkit-scrollbar{width:3px}
+.left-col::-webkit-scrollbar-thumb{background:var(--b2)}
+.right-col{flex:1;overflow-y:auto;padding:0 24px 20px 16px}
+.right-col::-webkit-scrollbar{width:3px}
+.right-col::-webkit-scrollbar-thumb{background:var(--b2)}
+
+/* FORM CARD */
+.fc{
+  background:var(--bg2);border:1px solid var(--b2);
+  padding:18px;margin-bottom:12px;position:relative;overflow:hidden;
+}
+.fc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--cyan);opacity:0.3}
+.fc.green::before{background:var(--green)}
+.fc.amber::before{background:var(--amber)}
+.fc.red::before{background:var(--red)}
+.fc.violet::before{background:var(--violet)}
+.fc.pink::before{background:var(--pink)}
+.fc-title{font-family:var(--head);font-size:15px;font-weight:600;letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.fl{font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;display:block}
+.fi{
+  width:100%;padding:9px 12px;
+  background:var(--bg3);border:1px solid var(--b2);
+  color:var(--t1);font-family:var(--mono);font-size:12px;outline:none;
+  transition:all 0.2s;margin-bottom:10px;
+}
+.fi:focus{border-color:var(--cyan);background:var(--s1)}
+.fi::placeholder{color:var(--t3)}
+textarea.fi{resize:vertical;min-height:68px}
+select.fi{cursor:pointer}
+.fr{display:flex;gap:8px}
+.fr .fi{flex:1}
+.fsub{
+  width:100%;padding:10px;border:1px solid;cursor:pointer;
+  font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;transition:all 0.2s;background:transparent;
+  position:relative;overflow:hidden;
+}
+.fsub::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity 0.2s;background:currentColor}
+.fsub:hover::before{opacity:0.1}
+.fsub:hover{transform:translateY(-1px);filter:brightness(1.2)}
+.fsub.cyan{color:var(--cyan);border-color:rgba(0,180,255,0.4)}
+.fsub.green{color:var(--green);border-color:rgba(0,255,157,0.35)}
+.fsub.amber{color:var(--amber);border-color:rgba(255,184,0,0.35)}
+.fsub.red{color:var(--red);border-color:rgba(255,60,90,0.35)}
+.fsub.violet{color:var(--violet);border-color:rgba(168,85,247,0.35)}
+
+/* LIST HEADERS */
+.lh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--b1)}
+.lh-title{font-family:var(--head);font-size:14px;font-weight:600;letter-spacing:1px;color:var(--t1)}
+.lh-count{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+.frow{display:flex;gap:6px}
+.fchip{
+  padding:4px 10px;border:1px solid var(--b1);background:transparent;
+  color:var(--t2);font-family:var(--mono);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.18s;
+}
+.fchip:hover{background:var(--b1);color:var(--t1)}
+.fchip.on{background:var(--cyan-d);color:var(--cyan);border-color:rgba(0,180,255,0.3)}
+
+/* CARDS */
+.card{
+  background:var(--bg2);border:1px solid var(--b1);
+  padding:12px 14px;margin-bottom:8px;
+  position:relative;overflow:hidden;
+  animation:card-in 0.25s ease;transition:border-color 0.2s;
+}
+.card:hover{border-color:var(--b2)}
+@keyframes card-in{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px}
+.card.cyan::before{background:linear-gradient(to bottom,var(--cyan),var(--cyan2))}
+.card.green::before{background:linear-gradient(to bottom,var(--green),#00d4aa)}
+.card.amber::before{background:linear-gradient(to bottom,var(--amber),#ff8c00)}
+.card.red::before{background:linear-gradient(to bottom,var(--red),#cc0022)}
+.card.violet::before{background:linear-gradient(to bottom,var(--violet),var(--pink))}
+.card.pink::before{background:linear-gradient(to bottom,var(--pink),var(--violet))}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
+.card-title{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:0.5px;line-height:1.2}
+.card-actions{display:flex;gap:4px}
+.ca{
+  width:26px;height:26px;border:1px solid var(--b1);background:transparent;
+  cursor:pointer;display:grid;place-items:center;font-size:11px;
+  color:var(--t2);transition:all 0.18s;
+}
+.ca:hover{border-color:var(--b2);color:var(--cyan);background:var(--cyan-d)}
+.ca.del:hover{border-color:rgba(255,60,90,0.35);color:var(--red);background:var(--red-d)}
+.card-body{font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:6px}
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tag{font-family:var(--mono);font-size:9px;padding:2px 7px;letter-spacing:0.5px}
+.tag.cyan{background:var(--cyan-d);color:var(--cyan);border:1px solid rgba(0,180,255,0.2)}
+.tag.green{background:var(--green-d);color:var(--green);border:1px solid rgba(0,255,157,0.2)}
+.tag.amber{background:var(--amber-d);color:var(--amber);border:1px solid rgba(255,184,0,0.2)}
+.tag.red{background:var(--red-d);color:var(--red);border:1px solid rgba(255,60,90,0.2)}
+.tag.violet{background:var(--violet-d);color:var(--violet);border:1px solid rgba(168,85,247,0.2)}
+.tag.pink{background:var(--pink-d);color:var(--pink);border:1px solid rgba(247,37,133,0.2)}
+.tag.mute{background:rgba(42,68,100,0.3);color:var(--t2);border:1px solid var(--b1)}
+.card-id{font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:5px}
+
+/* STATS GRID */
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.sbox{background:var(--bg2);border:1px solid var(--b1);padding:14px 12px;text-align:center;position:relative;overflow:hidden}
+.sbox::before{content:'';position:absolute;bottom:0;left:0;right:0;height:1px}
+.sbox.cyan::before{background:var(--cyan)}
+.sbox.green::before{background:var(--green)}
+.sbox.amber::before{background:var(--amber)}
+.sbox.red::before{background:var(--red)}
+.sbox.violet::before{background:var(--violet)}
+.sbox.pink::before{background:var(--pink)}
+.snum{font-family:var(--head);font-size:30px;font-weight:700;line-height:1}
+.snum.cyan{color:var(--cyan);text-shadow:0 0 20px rgba(0,180,255,0.4)}
+.snum.green{color:var(--green);text-shadow:0 0 20px rgba(0,255,157,0.4)}
+.snum.amber{color:var(--amber)}
+.snum.red{color:var(--red)}
+.snum.violet{color:var(--violet)}
+.slabel{font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:4px;letter-spacing:1.5px;text-transform:uppercase}
+
+/* JSON OUTPUT */
+.json-out{
+  background:var(--bg3);border:1px solid var(--b2);
+  padding:14px;font-family:var(--mono);font-size:11px;
+  color:var(--green);line-height:1.7;overflow-x:auto;
+  max-height:300px;overflow-y:auto;white-space:pre;
+}
+.json-out::-webkit-scrollbar{width:3px;height:3px}
+.json-out::-webkit-scrollbar-thumb{background:var(--b2)}
+
+/* LOADING & EMPTY */
+.ldr{display:flex;align-items:center;gap:10px;padding:20px;color:var(--t2);font-family:var(--mono);font-size:12px}
+.spin{width:14px;height:14px;border:2px solid var(--b2);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px 20px;color:var(--t3);font-family:var(--mono);font-size:12px;letter-spacing:1px}
+.empty-icon{font-size:28px;opacity:0.2;margin-bottom:10px}
+
+/* MODAL */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);z-index:300;display:none;place-items:center}
+.mbg.on{display:grid}
+.modal{
+  background:var(--bg2);border:1px solid var(--b3);
+  padding:28px;width:480px;max-width:92vw;
+  box-shadow:0 0 60px rgba(0,180,255,0.1);
+  animation:modal-in 0.3s cubic-bezier(0.16,1,0.3,1);
+  position:relative;
+}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--cyan);opacity:0.5}
+@keyframes modal-in{from{opacity:0;transform:scale(0.93) translateY(20px)}to{opacity:1;transform:none}}
+.modal-title{font-family:var(--head);font-size:18px;font-weight:700;letter-spacing:2px;margin-bottom:16px;color:#fff}
+.mbtns{display:flex;gap:10px;margin-top:16px}
+.mbtn{
+  flex:1;padding:10px;border:1px solid var(--b2);background:transparent;
+  cursor:pointer;font-family:var(--head);font-size:13px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;transition:all 0.2s;color:var(--t2);
+}
+.mbtn:hover{color:var(--t1);background:var(--b1)}
+.mbtn.cyan{color:var(--cyan);border-color:rgba(0,180,255,0.35)}
+.mbtn.cyan:hover{background:var(--cyan-d)}
+.mbtn.red{color:var(--red);border-color:rgba(255,60,90,0.35)}
+.mbtn.red:hover{background:var(--red-d)}
+
+/* TOAST */
+.tc{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast{
+  background:var(--bg2);border:1px solid var(--b2);
+  padding:9px 18px;font-family:var(--mono);font-size:11px;letter-spacing:1px;
+  animation:toast-in 0.3s ease;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5);
+}
+@keyframes toast-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.toast.ok{border-color:rgba(0,255,157,0.35);color:var(--green)}
+.toast.warn{border-color:rgba(255,184,0,0.35);color:var(--amber)}
+.toast.err{border-color:rgba(255,60,90,0.35);color:var(--red)}
+.toast.info{border-color:rgba(0,180,255,0.35);color:var(--cyan)}
+
+/* PROGRESS BAR */
+.pbar{height:3px;background:var(--b1);margin:4px 0;overflow:hidden;flex:1}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width 0.4s}
+
+/* HABIT METER */
+.hm{display:flex;align-items:center;gap:8px;margin-top:6px}
+.hm-label{font-family:var(--mono);font-size:10px;color:var(--t2);white-space:nowrap}
+
+/* UNIFIED OUTPUT SECTION */
+.uo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.uo-box{background:var(--bg3);border:1px solid var(--b1);padding:12px}
+.uo-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--cyan);margin-bottom:8px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="glow-orb g1"></div>
+<div class="glow-orb g2"></div>
+<div class="glow-orb g3"></div>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN
+═══════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-corner tl"></div><div class="login-corner tr"></div>
+    <div class="login-corner bl"></div><div class="login-corner br"></div>
+    <div class="login-card">
+      <div class="login-sys">SYSTEM ONLINE</div>
+      <div class="login-title">ARIA<span>.</span></div>
+      <div class="login-sub">MONGODB INTELLIGENCE SYSTEM v3.0</div>
+
+      <div class="tab-row">
+        <button class="ltab on" onclick="switchTab('login')">SIGN IN</button>
+        <button class="ltab" onclick="switchTab('register')">REGISTER</button>
+      </div>
+
+      <div id="lf">
+        <div class="lfield"><label class="llabel">Username</label><input class="linput" id="lu" placeholder="Enter username" autocomplete="username"/></div>
+        <div class="lfield"><label class="llabel">Password</label><input class="linput" type="password" id="lp" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <button class="lbtn" onclick="doLogin()">AUTHENTICATE →</button>
+        <div class="lerr" id="lerr"></div>
+      </div>
+      <div id="rf" style="display:none">
+        <div class="lfield"><label class="llabel">Full Name</label><input class="linput" id="rn" placeholder="Your name"/></div>
+        <div class="lfield"><label class="llabel">Username</label><input class="linput" id="ru" placeholder="Choose username"/></div>
+        <div class="lfield"><label class="llabel">Email</label><input class="linput" id="re" placeholder="your@email.com"/></div>
+        <div class="lfield"><label class="llabel">Password</label><input class="linput" type="password" id="rp" placeholder="Min 6 characters" onkeydown="if(event.key==='Enter')doRegister()"/></div>
+        <button class="lbtn" onclick="doRegister()">CREATE ACCOUNT →</button>
+        <div class="lerr" id="rerr"></div>
+      </div>
+      <div class="demo-creds">DEMO → user: <span>admin</span> &nbsp; pass: <span>aria2025</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     APP
+═══════════════════════════════════════════ -->
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-logo">ARIA<span>.</span></div>
+    <div class="tb-nav">
+      <button class="tnav on" id="tn-dashboard" onclick="nav('dashboard')"><span class="ni"></span> Dashboard</button>
+      <button class="tnav" id="tn-users" onclick="nav('users')"><span class="ni"></span> Users</button>
+      <button class="tnav" id="tn-memory" onclick="nav('memory')"><span class="ni"></span> Memory</button>
+      <button class="tnav" id="tn-intents" onclick="nav('intents')"><span class="ni"></span> Intents</button>
+      <button class="tnav" id="tn-habits" onclick="nav('habits')"><span class="ni"></span> Habits</button>
+      <button class="tnav" id="tn-unified" onclick="nav('unified')"><span class="ni"></span> Unified API</button>
+    </div>
+    <div class="tb-right">
+      <div class="db-status"><div class="dbd" id="dbd"></div><span id="dbl">CONNECTING</span></div>
+      <div class="tb-clock" id="clk">--:--:--</div>
+      <div class="user-chip"><div class="uav" id="uav">?</div><span id="unm">User</span></div>
+      <button class="logout" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sg">User Memory</div>
+      <button class="sbtn" onclick="nav('users');setForm('u-create')"><div class="si"></div> Create Profile</button>
+      <button class="sbtn" onclick="nav('users');setForm('u-read');loadUsers()"><div class="si"></div> List Users</button>
+      <button class="sbtn" onclick="nav('users');setForm('u-update')"><div class="si"></div> Update Profile</button>
+      <button class="sbtn" onclick="nav('users');setForm('u-delete')"><div class="si"></div> Delete User</button>
+
+      <div class="sg">Conversation Memory</div>
+      <button class="sbtn" onclick="nav('memory');setMemForm('m-create')"><div class="si"></div> Store Message</button>
+      <button class="sbtn" onclick="nav('memory');setMemForm('m-read');loadMemory()"><div class="si"></div> View History</button>
+      <button class="sbtn" onclick="nav('memory');setMemForm('m-context')"><div class="si"></div> Last 5 Recall</button>
+      <button class="sbtn" onclick="nav('memory');setMemForm('m-delete')"><div class="si"></div> Delete Memory</button>
+
+      <div class="sg">Intent & Habits</div>
+      <button class="sbtn" onclick="nav('intents');setIntForm('i-log')"><div class="si"></div> Log Intent</button>
+      <button class="sbtn" onclick="nav('intents');setIntForm('i-read');loadIntents()"><div class="si"></div> Intent Stats</button>
+      <button class="sbtn" onclick="nav('habits');setHabForm('h-read');loadHabits()"><div class="si"></div> View Habits</button>
+      <button class="sbtn" onclick="nav('habits');setHabForm('h-promote')"><div class="si"></div> Promote Habit</button>
+
+      <div class="sg">Output</div>
+      <button class="sbtn" onclick="nav('unified');loadUnified()"><div class="si"></div> Unified Output</button>
+      <button class="sbtn" onclick="nav('dashboard');loadDashboard()"><div class="si"></div> Refresh All</button>
+    </div>
+
+    <!-- MAIN PANELS -->
+    <div class="main">
+
+      <!-- ═══ DASHBOARD PANEL ═══ -->
+      <div class="panel on" id="panel-dashboard">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-title">SYSTEM DASHBOARD</div>
+            <div class="ph-sub">MONGODB INTELLIGENCE OVERVIEW · Real-time metrics</div>
+          </div>
+          <button class="ab s" onclick="loadDashboard()">↻ REFRESH</button>
+        </div>
+        <div class="content-split" style="display:block;padding:0 24px 20px;overflow-y:auto">
+          <div class="sgrid" style="margin-top:16px" id="dash-stats">
+            <div class="sbox cyan"><div class="snum cyan" id="ds-users">—</div><div class="slabel">Users</div></div>
+            <div class="sbox green"><div class="snum green" id="ds-mem">—</div><div class="slabel">Memories</div></div>
+            <div class="sbox amber"><div class="snum amber" id="ds-int">—</div><div class="slabel">Intents</div></div>
+            <div class="sbox violet"><div class="snum violet" id="ds-hab">—</div><div class="slabel">Habits</div></div>
+            <div class="sbox red"><div class="snum red" id="ds-conv">—</div><div class="slabel">Conversations</div></div>
+            <div class="sbox pink"><div class="snum" style="color:var(--pink)" id="ds-today">—</div><div class="slabel">Today's Msgs</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+            <div class="fc">
+              <div class="fc-title">Top Intents</div>
+              <div id="dash-intents"><div class="ldr"><div class="spin"></div>Loading…</div></div>
+            </div>
+            <div class="fc">
+              <div class="fc-title">Active Habits</div>
+              <div id="dash-habits"><div class="ldr"><div class="spin"></div>Loading…</div></div>
+            </div>
+          </div>
+          <div class="fc" style="margin-top:12px">
+            <div class="fc-title">Recent Memories (Last 5)</div>
+            <div id="dash-recent"><div class="ldr"><div class="spin"></div>Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ USERS PANEL ═══ -->
+      <div class="panel" id="panel-users">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-title">USER PROFILES</div>
+            <div class="ph-sub">Persistent user memory · MongoDB users collection</div>
+          </div>
+          <div class="ph-badge" id="user-count-badge">0 USERS</div>
+        </div>
+        <div class="action-bar">
+          <button class="ab c" onclick="setForm('u-create')">CREATE</button>
+          <button class="ab r" onclick="setForm('u-read');loadUsers()">LIST ALL</button>
+          <button class="ab u" onclick="setForm('u-update')">UPDATE</button>
+          <button class="ab d" onclick="setForm('u-delete')">DELETE</button>
+          <button class="ab s" onclick="setForm('u-read');loadUsers()">↻ REFRESH</button>
+        </div>
+        <div class="content-split">
+          <!-- FORMS -->
+          <div class="left-col">
+            <!-- CREATE -->
+            <div class="fc" id="form-u-create">
+              <div class="fc-title">➕ Create User Profile</div>
+              <label class="fl">Username *</label><input class="fi" id="uc_username" placeholder="unique_username"/>
+              <label class="fl">Full Name</label><input class="fi" id="uc_name" placeholder="Full name"/>
+              <label class="fl">Email</label><input class="fi" id="uc_email" placeholder="user@example.com"/>
+              <label class="fl">Preferences (JSON)</label><textarea class="fi" id="uc_prefs" placeholder='{"theme":"dark","lang":"en"}' rows="3"></textarea>
+              <button class="fsub cyan" onclick="api_createUser()">CREATE IN MONGODB →</button>
+            </div>
+            <!-- READ by ID -->
+            <div class="fc" id="form-u-read" style="display:none">
+              <div class="fc-title">🔍 Get User by ID</div>
+              <label class="fl">User ID</label>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input class="fi" id="ur_id" placeholder="MongoDB _id…" style="margin-bottom:0;flex:1"/>
+                <button class="fsub cyan" style="width:auto;padding:9px 14px;white-space:nowrap;font-size:11px" onclick="api_getUser()">FETCH</button>
+              </div>
+              <div id="ur_result"></div>
+            </div>
+            <!-- UPDATE -->
+            <div class="fc" id="form-u-update" style="display:none">
+              <div class="fc-title">✏️ Update User</div>
+              <label class="fl">User ID</label>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input class="fi" id="uu_id" placeholder="MongoDB _id…" style="margin-bottom:0;flex:1"/>
+                <button class="fsub amber" style="width:auto;padding:9px 14px;font-size:11px;white-space:nowrap" onclick="fetchUserForUpdate()">LOAD</button>
+              </div>
+              <div id="uu_fields" style="display:none">
+                <label class="fl">Full Name</label><input class="fi" id="uu_name" placeholder="Full name"/>
+                <label class="fl">Email</label><input class="fi" id="uu_email" placeholder="Email"/>
+                <label class="fl">Preferences (JSON)</label><textarea class="fi" id="uu_prefs" rows="3"></textarea>
+                <button class="fsub amber" onclick="api_updateUser()">SAVE CHANGES →</button>
+              </div>
+            </div>
+            <!-- DELETE -->
+            <div class="fc red" id="form-u-delete" style="display:none">
+              <div class="fc-title" style="color:var(--red)">🗑 Delete User</div>
+              <label class="fl">User ID</label><input class="fi" id="ud_id" placeholder="MongoDB _id…"/>
+              <div id="ud_preview" style="display:none;background:var(--red-d);border:1px solid rgba(255,60,90,0.2);padding:10px;margin-bottom:10px;font-size:12px;font-family:var(--mono)"></div>
+              <div style="display:flex;gap:8px">
+                <button class="fsub cyan" style="flex:1" onclick="previewUser()">PREVIEW</button>
+                <button class="fsub red" style="flex:1" onclick="api_deleteUser()">DELETE →</button>
+              </div>
+            </div>
+          </div>
+          <!-- LIST -->
+          <div class="right-col">
+            <div class="lh">
+              <div class="lh-title">All User Profiles</div>
+              <div class="lh-count" id="ulc">—</div>
+            </div>
+            <div id="usersList"><div class="empty"><div class="empty-icon"></div>Click LIST ALL to fetch from MongoDB</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ MEMORY PANEL ═══ -->
+      <div class="panel" id="panel-memory">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-title">CONVERSATION MEMORY</div>
+            <div class="ph-sub">Per-message storage · intent + entities · short & long-term recall</div>
+          </div>
+          <div class="ph-badge" id="mem-count-badge">0 MEMORIES</div>
+        </div>
+        <div class="action-bar">
+          <button class="ab c" onclick="setMemForm('m-create')">STORE</button>
+          <button class="ab r" onclick="setMemForm('m-read');loadMemory()">HISTORY</button>
+          <button class="ab s" onclick="setMemForm('m-context')">LAST 5</button>
+          <button class="ab u" onclick="setMemForm('m-update')">UPDATE</button>
+          <button class="ab d" onclick="setMemForm('m-delete')">DELETE</button>
+        </div>
+        <div class="content-split">
+          <div class="left-col">
+            <!-- STORE -->
+            <div class="fc green" id="form-m-create">
+              <div class="fc-title">➕ Store Memory</div>
+              <label class="fl">User ID</label><input class="fi" id="mc_uid" placeholder="userId (MongoDB _id)"/>
+              <div class="fr">
+                <div style="flex:1"><label class="fl">Role</label>
+                  <select class="fi" id="mc_role"><option value="user">user</option><option value="assistant">assistant</option><option value="system">system</option></select>
+                </div>
+                <div style="flex:1"><label class="fl">Type</label>
+                  <select class="fi" id="mc_type"><option value="short-term">short-term</option><option value="long-term">long-term</option></select>
+                </div>
+              </div>
+              <label class="fl">Message Content</label><textarea class="fi" id="mc_content" placeholder="Message text…" rows="3"></textarea>
+              <label class="fl">Intent</label><input class="fi" id="mc_intent" placeholder="e.g. set_reminder, ask_weather"/>
+              <label class="fl">Entities (comma-sep)</label><input class="fi" id="mc_entities" placeholder="time:9am, location:NYC"/>
+              <button class="fsub green" onclick="api_storeMemory()">STORE IN MONGODB →</button>
+            </div>
+            <!-- CONTEXT RECALL -->
+            <div class="fc violet" id="form-m-context" style="display:none">
+              <div class="fc-title">🔍 Last 5 Memory Recall</div>
+              <label class="fl">User ID</label><input class="fi" id="mctx_uid" placeholder="userId"/>
+              <label class="fl">Memory Type</label>
+              <select class="fi" id="mctx_type"><option value="">All</option><option value="short-term">Short-term</option><option value="long-term">Long-term</option></select>
+              <button class="fsub violet" onclick="api_getContext()">RETRIEVE CONTEXT →</button>
+              <div id="ctx_result" style="margin-top:10px"></div>
+            </div>
+            <!-- UPDATE -->
+            <div class="fc amber" id="form-m-update" style="display:none">
+              <div class="fc-title">✏️ Update Memory</div>
+              <label class="fl">Memory ID</label>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input class="fi" id="mu_id" placeholder="Memory _id…" style="margin-bottom:0;flex:1"/>
+                <button class="fsub amber" style="width:auto;padding:9px 14px;font-size:11px;white-space:nowrap" onclick="fetchMemForUpdate()">LOAD</button>
+              </div>
+              <div id="mu_fields" style="display:none">
+                <label class="fl">Content</label><textarea class="fi" id="mu_content" rows="3"></textarea>
+                <label class="fl">Intent</label><input class="fi" id="mu_intent" placeholder="intent"/>
+                <label class="fl">Entities</label><input class="fi" id="mu_entities" placeholder="entities…"/>
+                <button class="fsub amber" onclick="api_updateMemory()">SAVE →</button>
+              </div>
+            </div>
+            <!-- DELETE -->
+            <div class="fc red" id="form-m-delete" style="display:none">
+              <div class="fc-title" style="color:var(--red)">🗑 Delete Memory</div>
+              <label class="fl">Memory ID</label><input class="fi" id="md_id" placeholder="Memory _id…"/>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button class="fsub cyan" style="flex:1" onclick="previewMem()">PREVIEW</button>
+                <button class="fsub red" style="flex:1" onclick="api_deleteMemory()">DELETE →</button>
+              </div>
+              <div id="md_preview" style="display:none;margin-top:10px;background:var(--red-d);border:1px solid rgba(255,60,90,0.2);padding:10px;font-size:11px;font-family:var(--mono)"></div>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="lh">
+              <div class="lh-title">MEMORY HISTORY</div>
+              <div class="frow">
+                <button class="fchip on" onclick="loadMemory('all',this)">All</button>
+                <button class="fchip" onclick="loadMemory('short-term',this)">Short-Term</button>
+                <button class="fchip" onclick="loadMemory('long-term',this)">Long-Term</button>
+                <button class="fchip" onclick="loadMemory('all',this)">↻</button>
+              </div>
+            </div>
+            <div id="memoryList"><div class="empty"><div class="empty-icon"></div>Click HISTORY to load memories</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ INTENTS PANEL ═══ -->
+      <div class="panel" id="panel-intents">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-title">INTENT LOGGING</div>
+            <div class="ph-sub">Frequency tracking · $inc updates · habit detection trigger</div>
+          </div>
+          <div class="ph-badge" id="int-count-badge">0 INTENTS</div>
+        </div>
+        <div class="action-bar">
+          <button class="ab c" onclick="setIntForm('i-log')">LOG INTENT</button>
+          <button class="ab r" onclick="setIntForm('i-read');loadIntents()">ALL STATS</button>
+          <button class="ab u" onclick="setIntForm('i-update')">UPDATE</button>
+          <button class="ab d" onclick="setIntForm('i-delete')">DELETE</button>
+          <button class="ab s" onclick="setIntForm('i-read');loadIntents()">↻ REFRESH</button>
+        </div>
+        <div class="content-split">
+          <div class="left-col">
+            <!-- LOG -->
+            <div class="fc cyan" id="form-i-log">
+              <div class="fc-title">Log Intent</div>
+              <label class="fl">User ID</label><input class="fi" id="il_uid" placeholder="userId"/>
+              <label class="fl">Intent Name</label><input class="fi" id="il_intent" placeholder="e.g. set_reminder, ask_weather, play_music"/>
+              <label class="fl">Entities (JSON)</label><textarea class="fi" id="il_entities" placeholder='{"time":"9am","city":"NYC"}' rows="3"></textarea>
+              <label class="fl">Confidence (0–1)</label><input class="fi" id="il_conf" type="number" min="0" max="1" step="0.05" value="0.9" placeholder="0.9"/>
+              <button class="fsub cyan" onclick="api_logIntent()">LOG + INCREMENT COUNT →</button>
+            </div>
+            <!-- UPDATE -->
+            <div class="fc amber" id="form-i-update" style="display:none">
+              <div class="fc-title">✏️ Update Intent</div>
+              <label class="fl">Intent ID</label>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input class="fi" id="iu_id" placeholder="_id…" style="margin-bottom:0;flex:1"/>
+                <button class="fsub amber" style="width:auto;padding:9px 14px;font-size:11px;white-space:nowrap" onclick="fetchIntentForUpdate()">LOAD</button>
+              </div>
+              <div id="iu_fields" style="display:none">
+                <label class="fl">Intent Name</label><input class="fi" id="iu_name" placeholder="intent_name"/>
+                <label class="fl">Confidence</label><input class="fi" id="iu_conf" type="number" min="0" max="1" step="0.05"/>
+                <button class="fsub amber" onclick="api_updateIntent()">SAVE →</button>
+              </div>
+            </div>
+            <!-- DELETE -->
+            <div class="fc red" id="form-i-delete" style="display:none">
+              <div class="fc-title" style="color:var(--red)">🗑 Delete Intent</div>
+              <label class="fl">Intent ID</label><input class="fi" id="id_id" placeholder="Intent _id…"/>
+              <button class="fsub red" onclick="api_deleteIntent()" style="margin-top:4px">DELETE →</button>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="lh">
+              <div class="lh-title">Intent Frequency Stats</div>
+              <div class="lh-count" id="ilc">—</div>
+            </div>
+            <div id="intentsList"><div class="empty"><div class="empty-icon"></div>Click ALL STATS to load</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ HABITS PANEL ═══ -->
+      <div class="panel" id="panel-habits">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-title">HABIT DETECTION</div>
+            <div class="ph-sub">Auto-promoted when intent frequency ≥ 3 · confidence + trigger pattern</div>
+          </div>
+          <div class="ph-badge" id="hab-count-badge">0 HABITS</div>
+        </div>
+        <div class="action-bar">
+          <button class="ab r" onclick="setHabForm('h-read');loadHabits()">VIEW HABITS</button>
+          <button class="ab c" onclick="setHabForm('h-promote')">PROMOTE</button>
+          <button class="ab u" onclick="setHabForm('h-update')">UPDATE</button>
+          <button class="ab d" onclick="setHabForm('h-delete')">DELETE</button>
+          <button class="ab p" onclick="setHabForm('h-detect');api_detectHabits()">AUTO-DETECT</button>
+        </div>
+        <div class="content-split">
+          <div class="left-col">
+            <!-- PROMOTE MANUALLY -->
+            <div class="fc violet" id="form-h-promote">
+              <div class="fc-title">Promote to Habit</div>
+              <label class="fl">User ID</label><input class="fi" id="hp_uid" placeholder="userId"/>
+              <label class="fl">Intent Name</label><input class="fi" id="hp_intent" placeholder="Intent to promote as habit"/>
+              <label class="fl">Trigger Pattern</label><input class="fi" id="hp_trigger" placeholder="e.g. every morning, after lunch"/>
+              <label class="fl">Confidence (0–1)</label><input class="fi" id="hp_conf" type="number" min="0" max="1" step="0.05" value="0.85"/>
+              <label class="fl">Notes</label><textarea class="fi" id="hp_notes" placeholder="Additional context…" rows="2"></textarea>
+              <button class="fsub violet" onclick="api_promoteHabit()">PROMOTE TO HABITS COLLECTION →</button>
+            </div>
+            <!-- DETECT -->
+            <div class="fc pink" id="form-h-detect" style="display:none">
+              <div class="fc-title" style="color:var(--pink)">Auto-Detect Habits</div>
+              <label class="fl">User ID (optional)</label><input class="fi" id="hd_uid" placeholder="Leave blank for all users"/>
+              <label class="fl">Min Frequency Threshold</label><input class="fi" id="hd_thresh" type="number" value="3" min="1"/>
+              <button class="fsub" style="border-color:rgba(247,37,133,0.4);color:var(--pink)" onclick="api_detectHabits()">DETECT & PROMOTE →</button>
+              <div id="hd_result" style="margin-top:10px"></div>
+            </div>
+            <!-- UPDATE -->
+            <div class="fc amber" id="form-h-update" style="display:none">
+              <div class="fc-title">Update Habit</div>
+              <label class="fl">Habit ID</label>
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input class="fi" id="hu_id" placeholder="_id…" style="margin-bottom:0;flex:1"/>
+                <button class="fsub amber" style="width:auto;padding:9px 14px;font-size:11px;white-space:nowrap" onclick="fetchHabitForUpdate()">LOAD</button>
+              </div>
+              <div id="hu_fields" style="display:none">
+                <label class="fl">Trigger Pattern</label><input class="fi" id="hu_trigger"/>
+                <label class="fl">Confidence</label><input class="fi" id="hu_conf" type="number" min="0" max="1" step="0.05"/>
+                <label class="fl">Active</label><select class="fi" id="hu_active"><option value="true">Active</option><option value="false">Inactive</option></select>
+                <button class="fsub amber" onclick="api_updateHabit()">SAVE →</button>
+              </div>
+            </div>
+            <!-- DELETE -->
+            <div class="fc red" id="form-h-delete" style="display:none">
+              <div class="fc-title" style="color:var(--red)">Delete Habit</div>
+              <label class="fl">Habit ID</label><input class="fi" id="hdel_id" placeholder="_id…"/>
+              <button class="fsub red" onclick="api_deleteHabit()" style="margin-top:4px">DELETE →</button>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="lh">
+              <div class="lh-title">Detected Habits</div>
+              <div class="lh-count" id="hlc">—</div>
+            </div>
+            <div id="habitsList"><div class="empty"><div class="empty-icon"></div>Click VIEW HABITS to load</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ UNIFIED API PANEL ═══ -->
+      <div class="panel" id="panel-unified">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-title">UNIFIED API OUTPUT</div>
+            <div class="ph-sub">Structured response: userProfile + recentMemories + detectedHabits + intentStats</div>
+          </div>
+          <button class="ab r" onclick="loadUnified()">↻ FETCH ALL</button>
+        </div>
+        <div class="action-bar">
+          <button class="ab c" onclick="loadUnifiedFor()">👤 BY USER</button>
+          <button class="ab r" onclick="loadUnified()">⚡ FULL OUTPUT</button>
+          <button class="ab s" onclick="copyJSON()">📋 COPY JSON</button>
+        </div>
+        <div class="content-split" style="flex-direction:column;padding:0 24px 20px;overflow-y:auto">
+          <div style="display:flex;gap:8px;margin-top:16px;margin-bottom:12px">
+            <input class="fi" id="uid_unified" placeholder="Optional: filter by userId…" style="flex:1;margin-bottom:0"/>
+            <button class="fsub cyan" style="width:auto;padding:9px 18px;white-space:nowrap;font-size:12px" onclick="loadUnifiedFor()">FETCH FOR USER</button>
+          </div>
+          <div class="uo-grid" id="uo-grid">
+            <div class="uo-box"><div class="uo-title">userProfile</div><div class="json-out" id="uo-profile">—</div></div>
+            <div class="uo-box"><div class="uo-title">recentMemories</div><div class="json-out" id="uo-memories">—</div></div>
+            <div class="uo-box"><div class="uo-title">detectedHabits</div><div class="json-out" id="uo-habits">—</div></div>
+            <div class="uo-box"><div class="uo-title">intentStats</div><div class="json-out" id="uo-intents">—</div></div>
+          </div>
+          <div class="fc" style="margin-top:12px">
+            <div class="fc-title">⚡ Full Unified Response</div>
+            <div class="json-out" id="uo-full" style="max-height:400px">Click FETCH ALL to load unified output…</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /app-body -->
+</div><!-- /app -->
+
+<!-- CONFIRM MODAL -->
+<div class="mbg" id="confirmModal">
+  <div class="modal">
+    <div class="modal-title" id="cmt">Confirm Action</div>
+    <div style="color:var(--t2);font-family:var(--mono);font-size:12px;line-height:1.6" id="cmsg"></div>
+    <div class="mbtns">
+      <button class="mbtn" onclick="closeModal('confirmModal')">CANCEL</button>
+      <button class="mbtn red" id="cmok">CONFIRM</button>
+    </div>
+  </div>
+</div>
+<div class="tc" id="tc"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════
+   CONFIG & STATE
+═══════════════════════════════════════════ */
+let API = window.location.origin + '/api';
+let currentUser = null;
+let lastUnified = null;
+
+const DEMO = { admin:{ pass:'aria2025', name:'Admin User' }, user:{ pass:'pass123', name:'Demo User' } };
+
+/* ═══════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════ */
+function switchTab(t) {
+  document.querySelectorAll('.ltab').forEach((el,i)=>el.classList.toggle('on',(t==='login'&&i===0)||(t==='register'&&i===1)));
+  document.getElementById('lf').style.display = t==='login'?'block':'none';
+  document.getElementById('rf').style.display = t==='register'?'block':'none';
+}
+function doLogin() {
+  const u=v('lu'), p=v('lp'), e=document.getElementById('lerr');
+  if(!u||!p){e.textContent='Fill all fields';return}
+  const found=DEMO[u];
+  if(found&&found.pass===p){currentUser={username:u,name:found.name};e.textContent='';launch();}
+  else{e.textContent='Invalid credentials';document.getElementById('lp').value='';}
+}
+function doRegister() {
+  const n=v('rn'),u=v('ru'),e2=v('re'),p=v('rp'), err=document.getElementById('rerr');
+  if(!n||!u||!p){err.textContent='Fill required fields';return}
+  if(p.length<6){err.textContent='Password min 6 chars';return}
+  DEMO[u]={pass:p,name:n};
+  currentUser={username:u,name:n,email:e2};
+  err.textContent='';
+  toast('Account created!','ok');
+  launch();
+}
+function launch() {
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('unm').textContent=currentUser.name;
+  document.getElementById('uav').textContent=currentUser.name[0].toUpperCase();
+  startClock(); checkDB(); loadDashboard();
+  toast(`Welcome, ${currentUser.name}!`,'info');
+}
+function doLogout() {
+  currentUser=null;
+  document.getElementById('app').classList.remove('on');
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('lu').value=''; document.getElementById('lp').value='';
+}
+
+/* ═══════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════ */
+function nav(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tnav').forEach(b=>b.classList.remove('on'));
+  document.getElementById(`panel-${name}`).classList.add('on');
+  const btn=document.getElementById(`tn-${name}`); if(btn) btn.classList.add('on');
+}
+function setForm(id) {
+  const targetId = id.startsWith('form-') ? id : `form-${id}`;
+  ['form-u-create','form-u-read','form-u-update','form-u-delete'].forEach(f=>{
+    const el=document.getElementById(f); if(el) el.style.display='none';
+  });
+  const t=document.getElementById(targetId); if(t) t.style.display='block';
+}
+function setMemForm(id) {
+  const normalized = id === 'm-read' ? 'm-create' : id;
+  const targetId = normalized.startsWith('form-') ? normalized : `form-${normalized}`;
+  ['form-m-create','form-m-context','form-m-update','form-m-delete'].forEach(f=>{
+    const el=document.getElementById(f); if(el) el.style.display='none';
+  });
+  const t=document.getElementById(targetId); if(t) t.style.display='block';
+}
+function setIntForm(id) {
+  const normalized = id === 'i-read' ? 'i-log' : id;
+  const targetId = normalized.startsWith('form-') ? normalized : `form-${normalized}`;
+  ['form-i-log','form-i-update','form-i-delete'].forEach(f=>{
+    const el=document.getElementById(f); if(el) el.style.display='none';
+  });
+  const t=document.getElementById(targetId); if(t) t.style.display='block';
+}
+function setHabForm(id) {
+  const normalized = id === 'h-read' ? 'h-promote' : id;
+  const targetId = normalized.startsWith('form-') ? normalized : `form-${normalized}`;
+  ['form-h-promote','form-h-detect','form-h-update','form-h-delete'].forEach(f=>{
+    const el=document.getElementById(f); if(el) el.style.display='none';
+  });
+  const t=document.getElementById(targetId); if(t) t.style.display='block';
+}
+
+/* ═══════════════════════════════════════════
+   DB + CLOCK
+═══════════════════════════════════════════ */
+async function checkDB() {
+  const d=document.getElementById('dbd'), l=document.getElementById('dbl');
+  try {
+    const r=await fetch(`${API}/health`,{signal:AbortSignal.timeout(3000)});
+    if(r.ok){d.className='dbd on';l.textContent='MONGODB ON';return true;}
+  } catch {}
+  d.className='dbd off'; l.textContent='OFFLINE';
+  return false;
+}
+setInterval(checkDB,30000);
+function startClock(){
+  const el=document.getElementById('clk');
+  const t=()=>{el.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})};
+  t();setInterval(t,1000);
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════ */
+async function loadDashboard() {
+  try {
+    const r=await fetch(`${API}/dashboard`);
+    const d=await r.json();
+    document.getElementById('ds-users').textContent=d.users??'—';
+    document.getElementById('ds-mem').textContent=d.memories??'—';
+    document.getElementById('ds-int').textContent=d.intents??'—';
+    document.getElementById('ds-hab').textContent=d.habits??'—';
+    document.getElementById('ds-conv').textContent=d.conversations??'—';
+    document.getElementById('ds-today').textContent=d.todayMessages??'—';
+
+    // Top intents
+    const ti=document.getElementById('dash-intents');
+    if(d.topIntents&&d.topIntents.length){
+      ti.innerHTML=d.topIntents.map(i=>`
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="font-family:var(--mono)">${i.intent}</span>
+            <span style="color:var(--cyan)">${i.count}×</span>
+          </div>
+          <div class="pbar"><div class="pbar-fill" style="width:${Math.min(100,i.count/Math.max(...d.topIntents.map(x=>x.count))*100)}%"></div></div>
+        </div>`).join('');
+    } else ti.innerHTML='<div style="color:var(--t3);font-family:var(--mono);font-size:11px;padding:8px">No intents yet</div>';
+
+    // Active habits
+    const ah=document.getElementById('dash-habits');
+    if(d.activeHabits&&d.activeHabits.length){
+      ah.innerHTML=d.activeHabits.map(h=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:6px 8px;background:var(--bg3);border:1px solid var(--b1)">
+          <span style="font-family:var(--mono);font-size:12px">${h.intent}</span>
+          <span class="tag violet">${Math.round(h.confidence*100)}%</span>
+        </div>`).join('');
+    } else ah.innerHTML='<div style="color:var(--t3);font-family:var(--mono);font-size:11px;padding:8px">No habits detected</div>';
+
+    // Recent memories
+    const rm=document.getElementById('dash-recent');
+    if(d.recentMemories&&d.recentMemories.length){
+      rm.innerHTML=d.recentMemories.map(m=>`
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--b1)">
+          <span class="tag ${m.role==='user'?'cyan':m.role==='assistant'?'green':'amber'}">${m.role}</span>
+          <span style="font-size:12px;color:var(--t2);flex:1">${(m.content||'').substring(0,80)}${(m.content||'').length>80?'…':''}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--t3);white-space:nowrap">${m.intent||''}</span>
+        </div>`).join('');
+    } else rm.innerHTML='<div style="color:var(--t3);font-family:var(--mono);font-size:11px;padding:8px">No memories yet</div>';
+  } catch(e) {
+    ['ds-users','ds-mem','ds-int','ds-hab','ds-conv','ds-today'].forEach(id=>{document.getElementById(id).textContent='—'});
+    document.getElementById('dash-intents').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:8px">API offline</div>';
+    document.getElementById('dash-habits').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:8px">API offline</div>';
+    document.getElementById('dash-recent').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:8px">API offline</div>';
+  }
+}
+
+/* ═══════════════════════════════════════════
+   USERS API
+═══════════════════════════════════════════ */
+async function api_createUser() {
+  const body={username:v('uc_username'),name:v('uc_name'),email:v('uc_email')};
+  if(!body.username){toast('Username required','warn');return}
+  try{const prefs=v('uc_prefs');if(prefs)body.preferences=JSON.parse(prefs);}catch{toast('Invalid JSON in preferences','warn');return}
+  try {
+    const r=await post('/users',body);
+    toast(`User "${r.username}" created`,'ok');
+    ['uc_username','uc_name','uc_email','uc_prefs'].forEach(id=>set(id,''));
+    loadUsers();
+  } catch(e){toast('Create failed: '+e.message,'err')}
+}
+async function loadUsers() {
+  setList('usersList','<div class="ldr"><div class="spin"></div> Fetching users…</div>');
+  try {
+    const d=await get('/users');
+    const users=d.users||d;
+    const n=d.total??users.length;
+    document.getElementById('ulc').textContent=n+' users';
+    document.getElementById('user-count-badge').textContent=n+' USERS';
+    if(!users.length){setList('usersList','<div class="empty"><div class="empty-icon">👤</div>No users yet</div>');return}
+    setList('usersList',users.map(u=>`
+      <div class="card cyan">
+        <div class="card-header">
+          <div class="card-title">${u.username} <span style="font-weight:400;color:var(--t2)">${u.name?'· '+u.name:''}</span></div>
+          <div class="card-actions">
+            <button class="ca" onclick="quickEdit('user','${u._id}')">✏️</button>
+            <button class="ca del" onclick="confirmDel('user','${u._id}','${esc(u.username)}')">✕</button>
+          </div>
+        </div>
+        ${u.email?`<div class="card-body">${u.email}</div>`:''}
+        <div class="card-meta">
+          <span class="tag mute">Joined ${fmt(u.createdAt)}</span>
+          ${u.preferences?`<span class="tag cyan">prefs set</span>`:''}
+        </div>
+        <div class="card-id">_id: ${u._id}</div>
+      </div>`).join(''));
+  } catch(e){setList('usersList',`<div class="empty" style="color:var(--red)">⚠️ ${e.message}</div>`)}
+}
+async function api_getUser() {
+  const id=v('ur_id'); if(!id){toast('Enter ID','warn');return}
+  try{const u=await get('/users/'+id);document.getElementById('ur_result').innerHTML=`<div class="json-out">${JSON.stringify(u,null,2)}</div>`;}
+  catch{document.getElementById('ur_result').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:11px">Not found</div>'}
+}
+async function fetchUserForUpdate() {
+  const id=v('uu_id');if(!id){toast('Enter ID','warn');return}
+  try{
+    const u=await get('/users/'+id);
+    set('uu_name',u.name||'');set('uu_email',u.email||'');
+    set('uu_prefs',u.preferences?JSON.stringify(u.preferences,null,2):'');
+    document.getElementById('uu_fields').style.display='block';
+    toast('User loaded','ok');
+  } catch{toast('Not found','err')}
+}
+async function api_updateUser() {
+  const id=v('uu_id');if(!id){toast('No ID','warn');return}
+  const body={name:v('uu_name'),email:v('uu_email')};
+  try{const prefs=v('uu_prefs');if(prefs)body.preferences=JSON.parse(prefs);}catch{toast('Invalid JSON','warn');return}
+  try{await put('/users/'+id,body);toast('User updated','ok');loadUsers();}catch(e){toast('Failed: '+e.message,'err')}
+}
+async function previewUser() {
+  const id=v('ud_id');if(!id){toast('Enter ID','warn');return}
+  try{const u=await get('/users/'+id);const el=document.getElementById('ud_preview');el.style.display='block';el.innerHTML=`⚠️ DELETE: <b>${u.username}</b> (${u.email||'no email'})`;}
+  catch{toast('Not found','err')}
+}
+async function api_deleteUser() {
+  const id=v('ud_id');if(!id){toast('Enter ID','warn');return}
+  confirm2('Delete User?',`User will be permanently deleted.`,async()=>{
+    try{await del('/users/'+id);toast('User deleted','ok');set('ud_id','');document.getElementById('ud_preview').style.display='none';loadUsers();}
+    catch(e){toast('Failed: '+e.message,'err')}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   MEMORY API
+═══════════════════════════════════════════ */
+async function api_storeMemory() {
+  const body={
+    userId:v('mc_uid'),role:v('mc_role'),content:v('mc_content'),
+    intent:v('mc_intent'),memoryType:v('mc_type'),
+    entities:v('mc_entities').split(',').map(s=>s.trim()).filter(Boolean)
+  };
+  if(!body.userId||!body.content){toast('UserId + content required','warn');return}
+  try{
+    await post('/memories',body);
+    toast('Memory stored','ok');
+    ['mc_uid','mc_content','mc_intent','mc_entities'].forEach(id=>set(id,''));
+    loadMemory();
+  } catch(e){toast('Failed: '+e.message,'err')}
+}
+async function loadMemory(type='all',chipEl=null) {
+  if(chipEl){document.querySelectorAll('#panel-memory .fchip').forEach(c=>c.classList.remove('on'));chipEl.classList.add('on')}
+  setList('memoryList','<div class="ldr"><div class="spin"></div> Fetching memories…</div>');
+  try{
+    const url=type&&type!=='all'?`/memories?type=${type}`:'/memories';
+    const d=await get(url);
+    const mems=d.memories||d; const n=d.total??mems.length;
+    document.getElementById('mem-count-badge').textContent=n+' MEMORIES';
+    if(!mems.length){setList('memoryList','<div class="empty"><div class="empty-icon">🧠</div>No memories</div>');return}
+    setList('memoryList',mems.map(m=>`
+      <div class="card green">
+        <div class="card-header">
+          <div class="card-title">${(m.content||'').substring(0,60)}${(m.content||'').length>60?'…':''}</div>
+          <div class="card-actions">
+            <button class="ca" onclick="quickEdit('memory','${m._id}')">✏️</button>
+            <button class="ca del" onclick="confirmDel('memory','${m._id}','memory')">✕</button>
+          </div>
+        </div>
+        <div class="card-meta">
+          <span class="tag ${m.role==='user'?'cyan':m.role==='assistant'?'green':'amber'}">${m.role}</span>
+          <span class="tag ${m.memoryType==='long-term'?'violet':'mute'}">${m.memoryType||'short-term'}</span>
+          ${m.intent?`<span class="tag pink">${m.intent}</span>`:''}
+          ${(m.entities||[]).slice(0,2).map(e=>`<span class="tag mute">${e}</span>`).join('')}
+          <span class="tag mute">${fmt(m.timestamp||m.createdAt)}</span>
+        </div>
+        <div class="card-id">_id: ${m._id} · user: ${m.userId}</div>
+      </div>`).join(''));
+  } catch(e){setList('memoryList',`<div class="empty" style="color:var(--red)">⚠️ ${e.message}</div>`)}
+}
+async function api_getContext() {
+  const uid=v('mctx_uid'),type=v('mctx_type');
+  if(!uid){toast('User ID required','warn');return}
+  try{
+    const url=`/memories/context/${uid}${type?'?type='+type:''}`;
+    const d=await get(url);
+    const mems=d.memories||d;
+    document.getElementById('ctx_result').innerHTML=`
+      <div style="margin-bottom:6px;font-family:var(--mono);font-size:10px;color:var(--cyan)">LAST ${mems.length} MEMORIES</div>
+      ${mems.map(m=>`<div style="padding:7px;background:var(--bg3);border:1px solid var(--b1);margin-bottom:5px">
+        <div style="display:flex;gap:6px;margin-bottom:4px">
+          <span class="tag ${m.role==='user'?'cyan':'green'}">${m.role}</span>
+          ${m.intent?`<span class="tag pink">${m.intent}</span>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--t2)">${m.content}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-top:4px">${fmt(m.timestamp||m.createdAt)}</div>
+      </div>`).join('')}`;
+    toast(`${mems.length} memories retrieved`,'info');
+  } catch(e){toast('Failed: '+e.message,'err')}
+}
+async function fetchMemForUpdate() {
+  const id=v('mu_id');if(!id){toast('Enter ID','warn');return}
+  try{
+    const m=await get('/memories/'+id);
+    set('mu_content',m.content||'');set('mu_intent',m.intent||'');
+    set('mu_entities',(m.entities||[]).join(', '));
+    document.getElementById('mu_fields').style.display='block';
+    toast('Memory loaded','ok');
+  } catch{toast('Not found','err')}
+}
+async function api_updateMemory() {
+  const id=v('mu_id');if(!id){toast('No ID','warn');return}
+  const body={content:v('mu_content'),intent:v('mu_intent'),entities:v('mu_entities').split(',').map(s=>s.trim()).filter(Boolean)};
+  try{await put('/memories/'+id,body);toast('Memory updated','ok');loadMemory();}catch(e){toast('Failed: '+e.message,'err')}
+}
+async function previewMem() {
+  const id=v('md_id');if(!id){toast('Enter ID','warn');return}
+  try{const m=await get('/memories/'+id);const el=document.getElementById('md_preview');el.style.display='block';el.textContent=`⚠️ DELETE: "${(m.content||'').substring(0,60)}…"`;}
+  catch{toast('Not found','err')}
+}
+async function api_deleteMemory() {
+  const id=v('md_id');if(!id){toast('Enter ID','warn');return}
+  confirm2('Delete Memory?','This memory will be permanently deleted.',async()=>{
+    try{await del('/memories/'+id);toast('Deleted','ok');set('md_id','');document.getElementById('md_preview').style.display='none';loadMemory();}
+    catch(e){toast('Failed: '+e.message,'err')}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   INTENTS API
+═══════════════════════════════════════════ */
+async function api_logIntent() {
+  const body={userId:v('il_uid'),intent:v('il_intent'),confidence:parseFloat(v('il_conf'))||0.9};
+  if(!body.intent){toast('Intent required','warn');return}
+  try{const ents=v('il_entities');if(ents)body.entities=JSON.parse(ents);}catch{toast('Invalid JSON entities','warn');return}
+  try{
+    const r=await post('/intents',body);
+    toast(`Intent "${r.intent}" logged (count: ${r.count})`,'ok');
+    ['il_uid','il_intent','il_entities'].forEach(id=>set(id,''));
+    loadIntents();
+    // Check habit threshold
+    if(r.count>=3)toast(`🔁 Intent "${r.intent}" reached 3+ — consider promoting to Habit!`,'warn');
+  } catch(e){toast('Failed: '+e.message,'err')}
+}
+async function loadIntents() {
+  setList('intentsList','<div class="ldr"><div class="spin"></div> Loading intents…</div>');
+  try{
+    const d=await get('/intents');
+    const ints=d.intents||d; const n=d.total??ints.length;
+    document.getElementById('ilc').textContent=n+' intents';
+    document.getElementById('int-count-badge').textContent=n+' INTENTS';
+    if(!ints.length){setList('intentsList','<div class="empty"><div class="empty-icon">🎯</div>No intents yet</div>');return}
+    const maxCount=Math.max(...ints.map(i=>i.count||1));
+    setList('intentsList',ints.map(i=>`
+      <div class="card amber">
+        <div class="card-header">
+          <div class="card-title" style="font-family:var(--mono)">${i.intent}</div>
+          <div class="card-actions">
+            <button class="ca" style="font-size:10px" onclick="promoteFromIntent('${i.intent}','${i.userId||''}')">⬆</button>
+            <button class="ca del" onclick="confirmDel('intent','${i._id}','${esc(i.intent)}')">✕</button>
+          </div>
+        </div>
+        <div class="hm">
+          <div class="pbar"><div class="pbar-fill" style="width:${Math.round((i.count||1)/maxCount*100)}%;background:linear-gradient(90deg,var(--amber),var(--red))"></div></div>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--amber);white-space:nowrap">${i.count}×</span>
+        </div>
+        <div class="card-meta" style="margin-top:6px">
+          ${(i.count||0)>=3?'<span class="tag violet">HABIT CANDIDATE</span>':''}
+          <span class="tag amber">conf: ${((i.confidence||0)*100).toFixed(0)}%</span>
+          <span class="tag mute">${fmt(i.lastSeen||i.updatedAt)}</span>
+        </div>
+        <div class="card-id">_id: ${i._id} · user: ${i.userId||'—'}</div>
+      </div>`).join(''));
+  } catch(e){setList('intentsList',`<div class="empty" style="color:var(--red)">⚠️ ${e.message}</div>`)}
+}
+function promoteFromIntent(intent, userId) {
+  nav('habits'); setHabForm('h-promote');
+  set('hp_intent',intent); set('hp_uid',userId);
+  toast('Intent pre-filled — complete & promote','info');
+}
+async function fetchIntentForUpdate() {
+  const id=v('iu_id');if(!id){toast('Enter ID','warn');return}
+  try{
+    const i=await get('/intents/'+id);
+    set('iu_name',i.intent||'');set('iu_conf',i.confidence||0.9);
+    document.getElementById('iu_fields').style.display='block';
+    toast('Intent loaded','ok');
+  } catch{toast('Not found','err')}
+}
+async function api_updateIntent() {
+  const id=v('iu_id');
+  const body={intent:v('iu_name'),confidence:parseFloat(v('iu_conf'))};
+  try{await put('/intents/'+id,body);toast('Intent updated','ok');loadIntents();}catch(e){toast('Failed: '+e.message,'err')}
+}
+async function api_deleteIntent() {
+  const id=v('id_id');if(!id){toast('Enter ID','warn');return}
+  confirm2('Delete Intent?','This intent log will be deleted.',async()=>{
+    try{await del('/intents/'+id);toast('Deleted','ok');set('id_id','');loadIntents();}catch(e){toast('Failed: '+e.message,'err')}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   HABITS API
+═══════════════════════════════════════════ */
+async function api_promoteHabit() {
+  const body={
+    userId:v('hp_uid'),intent:v('hp_intent'),triggerPattern:v('hp_trigger'),
+    confidence:parseFloat(v('hp_conf'))||0.85,notes:v('hp_notes')
+  };
+  if(!body.intent){toast('Intent required','warn');return}
+  try{
+    await post('/habits',body);
+    toast(`Habit "${body.intent}" promoted!`,'ok');
+    ['hp_uid','hp_intent','hp_trigger','hp_notes'].forEach(id=>set(id,''));
+    loadHabits();
+  } catch(e){toast('Failed: '+e.message,'err')}
+}
+async function api_detectHabits() {
+  const uid=v('hd_uid'), thresh=parseInt(v('hd_thresh'))||3;
+  setHabForm('h-detect');
+  document.getElementById('hd_result').innerHTML='<div class="ldr"><div class="spin"></div>Scanning intents…</div>';
+  try{
+    const url=`/habits/detect?threshold=${thresh}${uid?'&userId='+uid:''}`;
+    const d=await get(url);
+    document.getElementById('hd_result').innerHTML=`
+      <div style="color:var(--green);font-family:var(--mono);font-size:11px;margin-bottom:8px">✅ ${d.promoted||0} habits auto-promoted</div>
+      ${(d.habits||[]).map(h=>`<div style="padding:6px 8px;background:var(--bg3);border:1px solid var(--b1);margin-bottom:4px;font-family:var(--mono);font-size:11px"><span style="color:var(--violet)">${h.intent}</span> · conf: ${((h.confidence||0)*100).toFixed(0)}%</div>`).join('')}`;
+    toast(`${d.promoted||0} habits detected`,'ok');
+    loadHabits();
+  } catch(e){toast('Failed: '+e.message,'err');document.getElementById('hd_result').innerHTML=''}
+}
+async function loadHabits() {
+  setList('habitsList','<div class="ldr"><div class="spin"></div> Loading habits…</div>');
+  try{
+    const d=await get('/habits');
+    const habs=d.habits||d; const n=d.total??habs.length;
+    document.getElementById('hlc').textContent=n+' habits';
+    document.getElementById('hab-count-badge').textContent=n+' HABITS';
+    if(!habs.length){setList('habitsList','<div class="empty"><div class="empty-icon">🔁</div>No habits detected yet</div>');return}
+    setList('habitsList',habs.map(h=>`
+      <div class="card violet">
+        <div class="card-header">
+          <div class="card-title">${h.intent}</div>
+          <div class="card-actions">
+            <button class="ca" onclick="quickEdit('habit','${h._id}')">✏️</button>
+            <button class="ca del" onclick="confirmDel('habit','${h._id}','${esc(h.intent)}')">✕</button>
+          </div>
+        </div>
+        <div class="card-body">
+          ${h.triggerPattern?`🔔 ${h.triggerPattern}`:'No trigger pattern set'}
+          ${h.notes?`<br>📝 ${h.notes}`:''}
+        </div>
+        <div class="hm">
+          <div class="pbar"><div class="pbar-fill" style="width:${Math.round((h.confidence||0)*100)}%;background:linear-gradient(90deg,var(--violet),var(--pink))"></div></div>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--violet);white-space:nowrap">${Math.round((h.confidence||0)*100)}%</span>
+        </div>
+        <div class="card-meta" style="margin-top:4px">
+          <span class="tag ${h.active?'green':'red'}">${h.active?'ACTIVE':'INACTIVE'}</span>
+          <span class="tag mute">${fmt(h.createdAt)}</span>
+        </div>
+        <div class="card-id">_id: ${h._id} · user: ${h.userId||'—'}</div>
+      </div>`).join(''));
+  } catch(e){setList('habitsList',`<div class="empty" style="color:var(--red)">⚠️ ${e.message}</div>`)}
+}
+async function fetchHabitForUpdate() {
+  const id=v('hu_id');if(!id){toast('Enter ID','warn');return}
+  try{
+    const h=await get('/habits/'+id);
+    set('hu_trigger',h.triggerPattern||'');set('hu_conf',h.confidence||0.85);
+    document.getElementById('hu_active').value=String(h.active!==false);
+    document.getElementById('hu_fields').style.display='block';
+    toast('Habit loaded','ok');
+  } catch{toast('Not found','err')}
+}
+async function api_updateHabit() {
+  const id=v('hu_id');
+  const body={triggerPattern:v('hu_trigger'),confidence:parseFloat(v('hu_conf')),active:v('hu_active')==='true'};
+  try{await put('/habits/'+id,body);toast('Habit updated','ok');loadHabits();}catch(e){toast('Failed: '+e.message,'err')}
+}
+async function api_deleteHabit() {
+  const id=v('hdel_id');if(!id){toast('Enter ID','warn');return}
+  confirm2('Delete Habit?','Habit will be deleted.',async()=>{
+    try{await del('/habits/'+id);toast('Deleted','ok');set('hdel_id','');loadHabits();}catch(e){toast('Failed: '+e.message,'err')}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   UNIFIED API
+═══════════════════════════════════════════ */
+async function loadUnified() {
+  try{
+    const d=await get('/unified');
+    lastUnified=d;
+    renderUnified(d);
+    toast('Unified output loaded','ok');
+  } catch(e){toast('API offline: '+e.message,'err')}
+}
+async function loadUnifiedFor() {
+  const uid=v('uid_unified');
+  try{
+    const d=await get('/unified'+(uid?'?userId='+uid:''));
+    lastUnified=d;
+    renderUnified(d);
+    toast('Loaded'+(uid?' for user '+uid:''),'ok');
+  } catch(e){toast('Failed: '+e.message,'err')}
+}
+function renderUnified(d) {
+  document.getElementById('uo-profile').textContent=JSON.stringify(d.userProfile,null,2);
+  document.getElementById('uo-memories').textContent=JSON.stringify(d.recentMemories,null,2);
+  document.getElementById('uo-habits').textContent=JSON.stringify(d.detectedHabits,null,2);
+  document.getElementById('uo-intents').textContent=JSON.stringify(d.intentStats,null,2);
+  document.getElementById('uo-full').textContent=JSON.stringify(d,null,2);
+}
+function copyJSON() {
+  if(!lastUnified){toast('Load data first','warn');return}
+  navigator.clipboard.writeText(JSON.stringify(lastUnified,null,2));
+  toast('JSON copied!','ok');
+}
+
+/* ═══════════════════════════════════════════
+   QUICK EDIT + CONFIRM FROM LIST CARDS
+═══════════════════════════════════════════ */
+async function quickEdit(type, id) {
+  if(type==='user'){nav('users');setForm('u-update');set('uu_id',id);await fetchUserForUpdate();}
+  else if(type==='memory'){nav('memory');setMemForm('m-update');set('mu_id',id);await fetchMemForUpdate();}
+  else if(type==='habit'){nav('habits');setHabForm('h-update');set('hu_id',id);await fetchHabitForUpdate();}
+}
+async function confirmDel(type, id, label) {
+  const handlers={
+    user:()=>api_deleteUserById(id),
+    memory:()=>api_deleteMemoryById(id),
+    intent:()=>api_deleteIntentById(id),
+    habit:()=>api_deleteHabitById(id)
+  };
+  confirm2(`Delete ${type}?`,`"${label}" will be permanently removed from MongoDB.`,handlers[type]);
+}
+const makeDelById=(endpoint,reload)=>async(id)=>{
+  try{await del(`${endpoint}/${id}`);toast('Deleted','ok');reload();}catch(e){toast('Failed: '+e.message,'err')}
+};
+const api_deleteUserById=makeDelById('/users',loadUsers);
+const api_deleteMemoryById=makeDelById('/memories',()=>loadMemory());
+const api_deleteIntentById=makeDelById('/intents',loadIntents);
+const api_deleteHabitById=makeDelById('/habits',loadHabits);
+
+/* ═══════════════════════════════════════════
+   HTTP HELPERS
+═══════════════════════════════════════════ */
+async function req(method,path,body) {
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(body) opts.body=JSON.stringify(body);
+  const r=await fetch(API+path,opts);
+  const d=await r.json();
+  if(!r.ok) throw new Error(d.error||r.statusText);
+  return d;
+}
+const get=p=>req('GET',p);
+const post=(p,b)=>req('POST',p,b);
+const put=(p,b)=>req('PUT',p,b);
+const del=p=>req('DELETE',p);
+
+/* ═══════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════ */
+const v=id=>document.getElementById(id)?.value||'';
+const set=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val};
+const setList=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html};
+const esc=s=>(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+const fmt=d=>d?new Date(d).toLocaleString([],{dateStyle:'short',timeStyle:'short'}):'—';
+
+function toast(msg,type='ok'){
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;el.textContent=msg;
+  document.getElementById('tc').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+function confirm2(title,msg,cb){
+  document.getElementById('cmt').textContent=title;
+  document.getElementById('cmsg').textContent=msg;
+  document.getElementById('cmok').onclick=()=>{closeModal('confirmModal');cb();};
+  document.getElementById('confirmModal').classList.add('on');
+}
+function closeModal(id){document.getElementById(id).classList.remove('on')}
+document.querySelectorAll('.mbg').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('on')}));
+</script>
+</body>
+</html>
+

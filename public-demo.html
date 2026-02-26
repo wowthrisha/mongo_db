@@ -1,261 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Assistant API Demo</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #111827; color: #e5e7eb; }
-    h1, h2 { color: #f9fafb; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-    .card { background: #020617; border-radius: 8px; padding: 12px 14px; border: 1px solid #1f2937; box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
-    label { display: block; font-size: 12px; margin-top: 6px; color: #9ca3af; }
-    input, select, textarea { width: 100%; padding: 6px 8px; margin-top: 2px; border-radius: 4px; border: 1px solid #374151; background: #020617; color: #e5e7eb; font-size: 13px; }
-    button { margin-top: 10px; padding: 6px 10px; border-radius: 4px; border: none; cursor: pointer; background: #3b82f6; color: #f9fafb; font-size: 13px; }
-    button.secondary { background: #4b5563; }
-    pre { background: #020617; padding: 8px; border-radius: 4px; max-height: 220px; overflow: auto; font-size: 12px; border: 1px solid #111827; }
-    .row { display: flex; gap: 6px; align-items: center; }
-    .row input { flex: 1; }
-    #status { margin-bottom: 10px; font-size: 13px; }
-    .pill { display: inline-block; padding: 2px 6px; border-radius: 999px; background: #1d4ed8; font-size: 11px; margin-left: 4px; }
-  </style>
+<meta charset="UTF-8" />
+<title>Assistant API Demo</title>
+
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #111827; color: #e5e7eb; }
+h1, h2 { color: #f9fafb; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.card { background: #020617; border-radius: 8px; padding: 12px 14px; border: 1px solid #1f2937; }
+label { display: block; font-size: 12px; margin-top: 6px; color: #9ca3af; }
+input, select { width: 100%; padding: 6px; margin-top: 2px; border-radius: 4px; border: 1px solid #374151; background: #020617; color: #e5e7eb; }
+button { margin-top: 10px; padding: 6px 10px; border-radius: 4px; border: none; cursor: pointer; background: #3b82f6; color: white; }
+button.secondary { background: #4b5563; }
+pre { background: #020617; padding: 8px; border-radius: 4px; max-height: 220px; overflow: auto; font-size: 12px; }
+#status { margin-bottom: 10px; font-size: 13px; }
+.pill { padding: 2px 6px; border-radius: 999px; background: #1d4ed8; font-size: 11px; margin-left: 6px; }
+</style>
 </head>
+
 <body>
-  <h1>Assistant API Demo <span class="pill" id="tokenStatus">No token</span></h1>
-  <div id="status"></div>
 
-  <div class="grid">
-    <div class="card">
-      <h2>Auth</h2>
-      <label>Name (register)</label>
-      <input id="name" placeholder="Alice" />
-      <label>Email</label>
-      <input id="email" placeholder="alice@example.com" />
-      <label>Password</label>
-      <input id="password" type="password" placeholder="Password123!" />
-      <button onclick="register()">Register</button>
-      <button class="secondary" onclick="login()">Login</button>
-    </div>
+<h1>Assistant API Demo <span class="pill" id="tokenStatus">No token</span></h1>
+<div id="status">Checking API...</div>
 
-    <div class="card">
-      <h2>Profile</h2>
-      <button onclick="getProfile()">Load profile</button>
-      <button class="secondary" onclick="updateProfile()">Update theme → dark</button>
-      <button class="secondary" onclick="deleteProfile()">Delete account</button>
-    </div>
+<div class="grid">
 
-    <div class="card">
-      <h2>Memory</h2>
-      <label>Key</label>
-      <input id="memKey" value="favorite_drink" />
-      <label>Value</label>
-      <input id="memValue" value="Latte with oat milk" />
-      <label>Type</label>
-      <select id="memType">
-        <option value="preference">preference</option>
-        <option value="habit">habit</option>
-        <option value="fact">fact</option>
-        <option value="routine">routine</option>
-        <option value="location">location</option>
-        <option value="contact">contact</option>
-      </select>
-      <label>Tags (comma separated)</label>
-      <input id="memTags" value="coffee,morning" />
-      <button onclick="createMemory()">Create memory</button>
-      <button class="secondary" onclick="listMemories()">List memories</button>
-      <button class="secondary" onclick="searchMemories()">Search 'coffee'</button>
-    </div>
+<div class="card">
+<h2>Auth</h2>
+<label>Name</label>
+<input id="name" placeholder="Alice" />
+<label>Email</label>
+<input id="email" placeholder="alice@example.com" />
+<label>Password</label>
+<input id="password" type="password" placeholder="Password123!" />
+<button onclick="register()">Register</button>
+<button class="secondary" onclick="login()">Login</button>
+</div>
 
-    <div class="card">
-      <h2>Context</h2>
-      <p style="font-size:12px;color:#9ca3af;">Fetches userProfile, recentMemories, detectedHabits, intentStats, tasks.</p>
-      <button onclick="getContext()">Get /api/context</button>
-    </div>
-  </div>
+<div class="card">
+<h2>Profile</h2>
+<button onclick="getProfile()">Load profile</button>
+<button class="secondary" onclick="updateProfile()">Update theme → dark</button>
+<button class="secondary" onclick="deleteProfile()">Delete account</button>
+</div>
 
-  <h2>Last response</h2>
-  <pre id="output">{}</pre>
+<div class="card">
+<h2>Memory</h2>
+<label>Key</label>
+<input id="memKey" value="favorite_drink" />
+<label>Value</label>
+<input id="memValue" value="Latte" />
+<label>Tags</label>
+<input id="memTags" value="coffee,morning" />
+<button onclick="createMemory()">Create memory</button>
+<button class="secondary" onclick="listMemories()">List memories</button>
+<button class="secondary" onclick="searchMemories()">Search coffee</button>
+</div>
 
-  <script>
-    const origin = window.location.origin || '';
-    const isHttpOrigin = origin.startsWith('http://') || origin.startsWith('https://');
-    const BASE_URL = isHttpOrigin ? origin : 'http://localhost:4000';
+<div class="card">
+<h2>Context</h2>
+<button onclick="getContext()">Get Context</button>
+</div>
 
-    function setStatus(msg, isError = false) {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.style.color = isError ? '#f97373' : '#a7f3d0';
-    }
+</div>
 
-    function setOutput(data) {
-      document.getElementById('output').textContent = JSON.stringify(data, null, 2);
-    }
+<h2>Last response</h2>
+<pre id="output">{}</pre>
 
-    function updateTokenStatus() {
-      const token = localStorage.getItem('demo_jwt');
-      const pill = document.getElementById('tokenStatus');
-      if (token) {
-        pill.textContent = 'Token set';
-        pill.style.background = '#16a34a';
-      } else {
-        pill.textContent = 'No token';
-        pill.style.background = '#1d4ed8';
-      }
-    }
+<script>
+/* ---------- CONFIG ---------- */
+const BASE_URL = "http://localhost:5000";
 
-    async function api(path, options = {}) {
-      const token = localStorage.getItem('demo_jwt');
-      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-      if (token) {
-        headers['Authorization'] = 'Bearer ' + token;
-      }
-      const res = await fetch(BASE_URL + path, { ...options, headers });
-      const text = await res.text();
-      let data;
-      try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { raw: text }; }
-      if (!res.ok) {
-        throw { status: res.status, data };
-      }
-      return data;
-    }
+/* ---------- UI HELPERS ---------- */
+function setStatus(msg, error=false){
+  const el=document.getElementById("status");
+  el.textContent=msg;
+  el.style.color= error ? "#f87171" : "#34d399";
+}
 
-    async function register() {
-      try {
-        setStatus('Registering...');
-        const body = {
-          name: document.getElementById('name').value || 'Demo User',
-          email: document.getElementById('email').value || 'demo@example.com',
-          password: document.getElementById('password').value || 'Password123!'
-        };
-        const data = await api('/api/auth/register', { method: 'POST', body: JSON.stringify(body) });
-        localStorage.setItem('demo_jwt', data.token);
-        updateTokenStatus();
-        setStatus('Registered and token stored');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Register failed', true);
-        setOutput(err);
-      }
-    }
+function setOutput(data){
+  document.getElementById("output").textContent =
+    JSON.stringify(data,null,2);
+}
 
-    async function login() {
-      try {
-        setStatus('Logging in...');
-        const body = {
-          email: document.getElementById('email').value || 'demo@example.com',
-          password: document.getElementById('password').value || 'Password123!'
-        };
-        const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(body) });
-        localStorage.setItem('demo_jwt', data.token);
-        updateTokenStatus();
-        setStatus('Logged in and token stored');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Login failed', true);
-        setOutput(err);
-      }
-    }
+function updateTokenStatus(){
+  const token=localStorage.getItem("demo_jwt");
+  const pill=document.getElementById("tokenStatus");
+  if(token){
+    pill.textContent="Token set";
+    pill.style.background="#16a34a";
+  }else{
+    pill.textContent="No token";
+    pill.style.background="#1d4ed8";
+  }
+}
 
-    async function getProfile() {
-      try {
-        setStatus('Loading profile...');
-        const data = await api('/api/auth/profile');
-        setStatus('Profile loaded');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Profile load failed', true);
-        setOutput(err);
-      }
-    }
+/* ---------- API CALL ---------- */
+async function api(path,options={}){
+  const token=localStorage.getItem("demo_jwt");
+  const headers={"Content-Type":"application/json"};
+  if(token) headers["Authorization"]="Bearer "+token;
 
-    async function updateProfile() {
-      try {
-        setStatus('Updating profile...');
-        const body = {
-          preferences: { theme: 'dark' }
-        };
-        const data = await api('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) });
-        setStatus('Profile updated to dark theme');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Profile update failed', true);
-        setOutput(err);
-      }
-    }
+  const res=await fetch(BASE_URL+path,{...options,headers});
+  const text=await res.text();
+  const data=text?JSON.parse(text):{};
+  if(!res.ok) throw data;
+  return data;
+}
 
-    async function deleteProfile() {
-      try {
-        setStatus('Deleting account...');
-        const data = await api('/api/auth/profile', { method: 'DELETE' });
-        localStorage.removeItem('demo_jwt');
-        updateTokenStatus();
-        setStatus('Account deleted');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Delete failed', true);
-        setOutput(err);
-      }
-    }
-
-    async function createMemory() {
-      try {
-        setStatus('Creating memory...');
-        const tags = document.getElementById('memTags').value
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean);
-        const body = {
-          key: document.getElementById('memKey').value,
-          value: document.getElementById('memValue').value,
-          type: document.getElementById('memType').value,
-          tags
-        };
-        const data = await api('/api/memories', { method: 'POST', body: JSON.stringify(body) });
-        setStatus('Memory created');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Create memory failed', true);
-        setOutput(err);
-      }
-    }
-
-    async function listMemories() {
-      try {
-        setStatus('Listing memories...');
-        const data = await api('/api/memories');
-        setStatus('Memories loaded');
-        setOutput(data);
-      } catch (err) {
-        setStatus('List memories failed', true);
-        setOutput(err);
-      }
-    }
-
-    async function searchMemories() {
-      try {
-        setStatus('Searching memories for "coffee"...');
-        const data = await api('/api/memories/search?q=coffee');
-        setStatus('Search complete');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Search failed', true);
-        setOutput(err);
-      }
-    }
-
-    async function getContext() {
-      try {
-        setStatus('Loading context...');
-        const data = await api('/api/context');
-        setStatus('Context loaded');
-        setOutput(data);
-      } catch (err) {
-        setStatus('Context failed', true);
-        setOutput(err);
-      }
-    }
-
+/* ---------- AUTH ---------- */
+async function register(){
+  try{
+    setStatus("Registering...");
+    const data=await api("/api/auth/register",{
+      method:"POST",
+      body:JSON.stringify({
+        name:name.value,
+        email:email.value,
+        password:password.value
+      })
+    });
+    localStorage.setItem("demo_jwt",data.token);
     updateTokenStatus();
-  </script>
+    setStatus("Registered successfully");
+    setOutput(data);
+  }catch(e){ setStatus("Register failed",true); setOutput(e); }
+}
+
+async function login(){
+  try{
+    setStatus("Logging in...");
+    const data=await api("/api/auth/login",{
+      method:"POST",
+      body:JSON.stringify({
+        email:email.value,
+        password:password.value
+      })
+    });
+    localStorage.setItem("demo_jwt",data.token);
+    updateTokenStatus();
+    setStatus("Login success");
+    setOutput(data);
+  }catch(e){ setStatus("Login failed",true); setOutput(e); }
+}
+
+/* ---------- PROFILE ---------- */
+async function getProfile(){
+  try{
+    const data=await api("/api/auth/profile");
+    setStatus("Profile loaded");
+    setOutput(data);
+  }catch(e){ setStatus("Failed",true); setOutput(e); }
+}
+
+async function updateProfile(){
+  const data=await api("/api/auth/profile",{
+    method:"PUT",
+    body:JSON.stringify({preferences:{theme:"dark"}})
+  });
+  setStatus("Theme updated");
+  setOutput(data);
+}
+
+async function deleteProfile(){
+  const data=await api("/api/auth/profile",{method:"DELETE"});
+  localStorage.removeItem("demo_jwt");
+  updateTokenStatus();
+  setStatus("Account deleted");
+  setOutput(data);
+}
+
+/* ---------- MEMORY ---------- */
+async function createMemory(){
+  const tags=memTags.value.split(",").map(t=>t.trim());
+  const data=await api("/api/memories",{
+    method:"POST",
+    body:JSON.stringify({
+      key:memKey.value,
+      value:memValue.value,
+      tags
+    })
+  });
+  setStatus("Memory created");
+  setOutput(data);
+}
+
+async function listMemories(){
+  const data=await api("/api/memories");
+  setStatus("Memories loaded");
+  setOutput(data);
+}
+
+async function searchMemories(){
+  const data=await api("/api/memories/search?q=coffee");
+  setStatus("Search complete");
+  setOutput(data);
+}
+
+/* ---------- CONTEXT ---------- */
+async function getContext(){
+  const data=await api("/api/context");
+  setStatus("Context loaded");
+  setOutput(data);
+}
+
+/* ---------- HEALTH CHECK ---------- */
+async function checkHealth(){
+  try{
+    const res=await fetch(BASE_URL+"/health");
+    if(res.ok) setStatus("API connected ✓");
+    else setStatus("API not responding",true);
+  }catch{
+    setStatus("API not reachable",true);
+  }
+}
+
+updateTokenStatus();
+checkHealth();
+</script>
+
 </body>
 </html>
-
