@@ -1,30 +1,30 @@
-# 🚀 ARIA Intelligence Dashboard
+# ARIA Intelligence Dashboard
 
 **Enterprise-grade MongoDB Intelligence Backend with Advanced Analytics**
 
 A production-ready Node.js + Express + MongoDB application demonstrating advanced database operations, real-time analytics, and professional full-stack development.
 
-## ✨ Features
+## Features
 
-### 🎯 Advanced MongoDB Operations
+### Advanced MongoDB Operations
 - **15+ Aggregation Operators**: `$group`, `$project`, `$sort`, `$limit`, `$match`, `$unwind`, `$addToSet`, `$sum`, `$avg`, `$min`, `$max`, `$ifNull`, `$round`, `$size`, `$filter`, `$switch`
 - **Complex Data Structures**: Arrays of documents, embedded documents, document references
 - **Real-time Analytics**: Intent frequency classification, session summaries, habit detection
 - **CRUD Operations**: Complete Create, Read, Update, Delete for all collections
 
-### 🎨 Professional Dashboard
+### Professional Dashboard
 - **Modern UI**: Responsive design with dark theme
 - **Real-time Updates**: Live data synchronization
 - **Interactive Features**: Users, Memories, Intents, Habits, Tasks, Interactions
 - **Analytics Visualization**: Advanced aggregation results with frequency classification
 
-### 🛠 Industry Standards
+### Industry Standards
 - **RESTful API Design**: Proper HTTP methods and status codes
 - **Error Handling**: Comprehensive error management with stack traces
 - **Security**: CORS configuration and input validation
 - **Performance**: Optimized aggregation pipelines and indexing
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js 16+
@@ -64,7 +64,7 @@ A production-ready Node.js + Express + MongoDB application demonstrating advance
    - **API Health**: http://localhost:5000/api/health
    - **Server Status**: http://localhost:5000/health
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Core Operations
 - `GET /api/health` - Server health check
@@ -85,7 +85,7 @@ A production-ready Node.js + Express + MongoDB application demonstrating advance
 - `GET /api/habits/detect` - Automatic habit detection
 - `GET /api/analytics/*` - Advanced analytics endpoints
 
-## 🎯 MongoDB Operations Showcase
+## MongoDB Operations Showcase
 
 ### Aggregation Pipeline Examples
 
@@ -145,7 +145,7 @@ A production-ready Node.js + Express + MongoDB application demonstrating advance
 ]
 ```
 
-## 🧪 Testing
+## Testing
 
 ### API Smoke Test
 ```bash
@@ -166,7 +166,7 @@ curl http://localhost:5000/api/unified | jq '.'
 curl http://localhost:5000/api/analytics/intent-summary | jq '.'
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 mongo_db/
@@ -182,7 +182,7 @@ mongo_db/
 └── README.md                # This file
 ```
 
-## 🎨 Dashboard Features
+## Dashboard Features
 
 ### Main Sections
 - **Users**: User management with embedded profiles
@@ -198,7 +198,7 @@ mongo_db/
 - **Session Analytics**: Device and region-based session analysis
 - **Real-time Updates**: Live data synchronization
 
-## 🛠 Development
+## Development
 
 ### Scripts
 - `npm start` - Start production server
@@ -213,7 +213,7 @@ JWT_EXPIRES_IN=7d
 PORT=5000
 ```
 
-## 📈 Performance Features
+## Performance Features
 
 - **Optimized Aggregations**: Efficient MongoDB pipelines
 - **Proper Indexing**: Strategic index placement for queries
@@ -221,14 +221,14 @@ PORT=5000
 - **Error Handling**: Comprehensive error management
 - **Input Validation**: Request sanitization and validation
 
-## 🔒 Security Features
+## Security Features
 
 - **CORS Configuration**: Cross-origin resource sharing setup
 - **Input Validation**: Request body validation
 - **Error Sanitization**: Secure error responses
 - **Environment Variables**: Secure configuration management
 
-## 🚀 Deployment Ready
+## Deployment Ready
 
 This application is designed for production deployment with:
 - **Modular Architecture**: Clean separation of concerns
@@ -237,15 +237,15 @@ This application is designed for production deployment with:
 - **Performance Optimization**: Efficient database operations
 - **Security Best Practices**: Industry-standard security measures
 
-## 📝 License
+## License
 
 MIT License - feel free to use this project for learning and development.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Built with ❤️ using Node.js, Express, MongoDB, and modern web technologies**
+**Built with using Node.js, Express, MongoDB, and modern web technologies**
 
