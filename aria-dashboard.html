@@ -218,7 +218,7 @@ body::before{
   padding:20px 24px 0;flex-shrink:0;
   display:flex;align-items:flex-start;justify-content:space-between;
 }
-.ph-left{}
+.ph-left{display:flex;flex-direction:column;gap:4px}
 .ph-title{font-family:var(--head);font-size:26px;font-weight:700;letter-spacing:2px;color:#fff;line-height:1}
 .ph-sub{font-family:var(--mono);font-size:11px;color:var(--t2);margin-top:4px;letter-spacing:0.5px}
 .ph-badge{font-family:var(--mono);font-size:11px;color:var(--cyan);padding:4px 12px;border:1px solid var(--b2);background:var(--cyan-d);letter-spacing:1px}
@@ -671,7 +671,9 @@ select.fi{cursor:pointer}
                 </div>
               </div>
               <label class="fl">Message Content</label><textarea class="fi" id="mc_content" placeholder="Message text…" rows="3"></textarea>
-              <label class="fl">Intent</label><input class="fi" id="mc_intent" placeholder="e.g. set_reminder, ask_weather"/>
+              <label class="fl">Intent</label>
+              <select class="fi" id="mc_intent"></select>
+              <input class="fi" id="mc_intent_custom" placeholder="Custom intent (optional)" style="margin-top:4px"/>
               <label class="fl">Entities (comma-sep)</label><input class="fi" id="mc_entities" placeholder="time:9am, location:NYC"/>
               <button class="fsub green" onclick="api_storeMemory()">STORE IN MONGODB →</button>
             </div>
@@ -694,7 +696,9 @@ select.fi{cursor:pointer}
               </div>
               <div id="mu_fields" style="display:none">
                 <label class="fl">Content</label><textarea class="fi" id="mu_content" rows="3"></textarea>
-                <label class="fl">Intent</label><input class="fi" id="mu_intent" placeholder="intent"/>
+                <label class="fl">Intent</label>
+                <select class="fi" id="mu_intent"></select>
+                <input class="fi" id="mu_intent_custom" placeholder="Custom intent (optional)" style="margin-top:4px"/>
                 <label class="fl">Entities</label><input class="fi" id="mu_entities" placeholder="entities…"/>
                 <button class="fsub amber" onclick="api_updateMemory()">SAVE →</button>
               </div>
@@ -747,7 +751,9 @@ select.fi{cursor:pointer}
             <div class="fc cyan" id="form-i-log">
               <div class="fc-title">Log Intent</div>
               <label class="fl">User ID</label><input class="fi" id="il_uid" placeholder="userId"/>
-              <label class="fl">Intent Name</label><input class="fi" id="il_intent" placeholder="e.g. set_reminder, ask_weather, play_music"/>
+              <label class="fl">Intent Name</label>
+              <select class="fi" id="il_intent"></select>
+              <input class="fi" id="il_intent_custom" placeholder="Custom intent (optional)" style="margin-top:4px"/>
               <label class="fl">Entities (JSON)</label><textarea class="fi" id="il_entities" placeholder='{"time":"9am","city":"NYC"}' rows="3"></textarea>
               <label class="fl">Confidence (0–1)</label><input class="fi" id="il_conf" type="number" min="0" max="1" step="0.05" value="0.9" placeholder="0.9"/>
               <button class="fsub cyan" onclick="api_logIntent()">LOG + INCREMENT COUNT →</button>
@@ -805,7 +811,9 @@ select.fi{cursor:pointer}
             <div class="fc violet" id="form-h-promote">
               <div class="fc-title">Promote to Habit</div>
               <label class="fl">User ID</label><input class="fi" id="hp_uid" placeholder="userId"/>
-              <label class="fl">Intent Name</label><input class="fi" id="hp_intent" placeholder="Intent to promote as habit"/>
+              <label class="fl">Intent Name</label>
+              <select class="fi" id="hp_intent"></select>
+              <input class="fi" id="hp_intent_custom" placeholder="Custom intent (optional)" style="margin-top:4px"/>
               <label class="fl">Trigger Pattern</label><input class="fi" id="hp_trigger" placeholder="e.g. every morning, after lunch"/>
               <label class="fl">Confidence (0–1)</label><input class="fi" id="hp_conf" type="number" min="0" max="1" step="0.05" value="0.85"/>
               <label class="fl">Notes</label><textarea class="fi" id="hp_notes" placeholder="Additional context…" rows="2"></textarea>
@@ -864,6 +872,8 @@ select.fi{cursor:pointer}
           <button class="ab c" onclick="loadUnifiedFor()">👤 BY USER</button>
           <button class="ab r" onclick="loadUnified()">⚡ FULL OUTPUT</button>
           <button class="ab s" onclick="copyJSON()">📋 COPY JSON</button>
+          <button class="ab p" onclick="loadIntentSummary()">🎯 INTENT SUMMARY</button>
+          <button class="ab u" onclick="loadSessionSummary()">👤 SESSION SUMMARY</button>
         </div>
         <div class="content-split" style="flex-direction:column;padding:0 24px 20px;overflow-y:auto">
           <div style="display:flex;gap:8px;margin-top:16px;margin-bottom:12px">
@@ -879,6 +889,10 @@ select.fi{cursor:pointer}
           <div class="fc" style="margin-top:12px">
             <div class="fc-title">⚡ Full Unified Response</div>
             <div class="json-out" id="uo-full" style="max-height:400px">Click FETCH ALL to load unified output…</div>
+          </div>
+          <div class="fc" style="margin-top:12px">
+            <div class="fc-title">📊 Aggregation Analytics</div>
+            <div class="json-out" id="uo-analytics">Use ANALYTICS buttons above…</div>
           </div>
         </div>
       </div>
@@ -911,6 +925,39 @@ let lastUnified = null;
 
 const DEMO = { admin:{ pass:'aria2025', name:'Admin User' }, user:{ pass:'pass123', name:'Demo User' } };
 
+// Centralized intent catalog used for dropdowns instead of hard-coded text
+const INTENT_OPTIONS = [
+  'set_reminder',
+  'ask_weather',
+  'play_music',
+  'get_news',
+  'schedule_meeting',
+  'answer_question',
+  'small_talk'
+];
+
+function populateIntentSelect(id, allowEmpty = true) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  if (allowEmpty) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'Select intent…';
+    el.appendChild(opt);
+  }
+  INTENT_OPTIONS.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    el.appendChild(opt);
+  });
+}
+
+function initIntentDropdowns() {
+  ['mc_intent','mu_intent','il_intent','hp_intent'].forEach(id => populateIntentSelect(id));
+}
+
 /* ═══════════════════════════════════════════
    LOGIN
 ═══════════════════════════════════════════ */
@@ -941,7 +988,7 @@ function launch() {
   document.getElementById('app').classList.add('on');
   document.getElementById('unm').textContent=currentUser.name;
   document.getElementById('uav').textContent=currentUser.name[0].toUpperCase();
-  startClock(); checkDB(); loadDashboard();
+  startClock(); checkDB(); loadDashboard(); initIntentDropdowns();
   toast(`Welcome, ${currentUser.name}!`,'info');
 }
 function doLogout() {
@@ -1147,14 +1194,14 @@ async function api_deleteUser() {
 async function api_storeMemory() {
   const body={
     userId:v('mc_uid'),role:v('mc_role'),content:v('mc_content'),
-    intent:v('mc_intent'),memoryType:v('mc_type'),
+    intent:(v('mc_intent_custom')||v('mc_intent')),memoryType:v('mc_type'),
     entities:v('mc_entities').split(',').map(s=>s.trim()).filter(Boolean)
   };
   if(!body.userId||!body.content){toast('UserId + content required','warn');return}
   try{
     await post('/memories',body);
     toast('Memory stored','ok');
-    ['mc_uid','mc_content','mc_intent','mc_entities'].forEach(id=>set(id,''));
+    ['mc_uid','mc_content','mc_intent','mc_intent_custom','mc_entities'].forEach(id=>set(id,''));
     loadMemory();
   } catch(e){toast('Failed: '+e.message,'err')}
 }
@@ -1211,7 +1258,15 @@ async function fetchMemForUpdate() {
   const id=v('mu_id');if(!id){toast('Enter ID','warn');return}
   try{
     const m=await get('/memories/'+id);
-    set('mu_content',m.content||'');set('mu_intent',m.intent||'');
+    set('mu_content',m.content||'');
+    populateIntentSelect('mu_intent');
+    if (m.intent && INTENT_OPTIONS.includes(m.intent)) {
+      set('mu_intent',m.intent);
+      set('mu_intent_custom','');
+    } else {
+      set('mu_intent','');
+      set('mu_intent_custom',m.intent||'');
+    }
     set('mu_entities',(m.entities||[]).join(', '));
     document.getElementById('mu_fields').style.display='block';
     toast('Memory loaded','ok');
@@ -1219,7 +1274,11 @@ async function fetchMemForUpdate() {
 }
 async function api_updateMemory() {
   const id=v('mu_id');if(!id){toast('No ID','warn');return}
-  const body={content:v('mu_content'),intent:v('mu_intent'),entities:v('mu_entities').split(',').map(s=>s.trim()).filter(Boolean)};
+  const body={
+    content:v('mu_content'),
+    intent:(v('mu_intent_custom')||v('mu_intent')),
+    entities:v('mu_entities').split(',').map(s=>s.trim()).filter(Boolean)
+  };
   try{await put('/memories/'+id,body);toast('Memory updated','ok');loadMemory();}catch(e){toast('Failed: '+e.message,'err')}
 }
 async function previewMem() {
@@ -1239,13 +1298,17 @@ async function api_deleteMemory() {
    INTENTS API
 ═══════════════════════════════════════════ */
 async function api_logIntent() {
-  const body={userId:v('il_uid'),intent:v('il_intent'),confidence:parseFloat(v('il_conf'))||0.9};
+  const body={
+    userId:v('il_uid'),
+    intent:(v('il_intent_custom')||v('il_intent')),
+    confidence:parseFloat(v('il_conf'))||0.9
+  };
   if(!body.intent){toast('Intent required','warn');return}
   try{const ents=v('il_entities');if(ents)body.entities=JSON.parse(ents);}catch{toast('Invalid JSON entities','warn');return}
   try{
     const r=await post('/intents',body);
     toast(`Intent "${r.intent}" logged (count: ${r.count})`,'ok');
-    ['il_uid','il_intent','il_entities'].forEach(id=>set(id,''));
+    ['il_uid','il_intent','il_intent_custom','il_entities'].forEach(id=>set(id,''));
     loadIntents();
     // Check habit threshold
     if(r.count>=3)toast(`🔁 Intent "${r.intent}" reached 3+ — consider promoting to Habit!`,'warn');
@@ -1284,7 +1347,15 @@ async function loadIntents() {
 }
 function promoteFromIntent(intent, userId) {
   nav('habits'); setHabForm('h-promote');
-  set('hp_intent',intent); set('hp_uid',userId);
+  populateIntentSelect('hp_intent');
+  if (intent && INTENT_OPTIONS.includes(intent)) {
+    set('hp_intent',intent);
+    set('hp_intent_custom','');
+  } else {
+    set('hp_intent','');
+    set('hp_intent_custom',intent||'');
+  }
+  set('hp_uid',userId);
   toast('Intent pre-filled — complete & promote','info');
 }
 async function fetchIntentForUpdate() {
@@ -1313,14 +1384,16 @@ async function api_deleteIntent() {
 ═══════════════════════════════════════════ */
 async function api_promoteHabit() {
   const body={
-    userId:v('hp_uid'),intent:v('hp_intent'),triggerPattern:v('hp_trigger'),
+    userId:v('hp_uid'),
+    intent:(v('hp_intent_custom')||v('hp_intent')),
+    triggerPattern:v('hp_trigger'),
     confidence:parseFloat(v('hp_conf'))||0.85,notes:v('hp_notes')
   };
   if(!body.intent){toast('Intent required','warn');return}
   try{
     await post('/habits',body);
     toast(`Habit "${body.intent}" promoted!`,'ok');
-    ['hp_uid','hp_intent','hp_trigger','hp_notes'].forEach(id=>set(id,''));
+    ['hp_uid','hp_intent','hp_intent_custom','hp_trigger','hp_notes'].forEach(id=>set(id,''));
     loadHabits();
   } catch(e){toast('Failed: '+e.message,'err')}
 }
@@ -1419,11 +1492,41 @@ function renderUnified(d) {
   document.getElementById('uo-habits').textContent=JSON.stringify(d.detectedHabits,null,2);
   document.getElementById('uo-intents').textContent=JSON.stringify(d.intentStats,null,2);
   document.getElementById('uo-full').textContent=JSON.stringify(d,null,2);
+  
+  // Auto-load analytics when unified data is loaded
+  if(d && d.meta) {
+    loadIntentSummary();
+  }
 }
 function copyJSON() {
   if(!lastUnified){toast('Load data first','warn');return}
   navigator.clipboard.writeText(JSON.stringify(lastUnified,null,2));
   toast('JSON copied!','ok');
+}
+
+async function loadIntentSummary() {
+  try {
+    const d = await get('/analytics/intent-summary');
+    document.getElementById('uo-analytics').textContent = JSON.stringify(d, null, 2);
+    toast('Intent aggregation loaded','ok');
+  } catch(e) {
+    toast('Failed: '+e.message,'err');
+  }
+}
+
+async function loadSessionSummary() {
+  const uid = v('uid_unified');
+  if (!uid) {
+    toast('Enter userId for session summary','warn');
+    return;
+  }
+  try {
+    const d = await get('/users/'+uid+'/sessions/summary');
+    document.getElementById('uo-analytics').textContent = JSON.stringify(d, null, 2);
+    toast('Session aggregation loaded','ok');
+  } catch(e) {
+    toast('Failed: '+e.message,'err');
+  }
 }
 
 /* ═══════════════════════════════════════════

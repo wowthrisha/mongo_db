@@ -37,6 +37,17 @@ const userSchema = new mongoose.Schema({
   name:         { type: String, default: '' },
   email:        { type: String, default: '' },
   preferences:  { type: mongoose.Schema.Types.Mixed, default: {} },
+  // Embedded subdocument for richer profile metadata
+  profile: {
+    bio:      { type: String, default: '' },
+    timezone: { type: String, default: 'UTC' },
+  },
+  // Array of embedded documents to demonstrate arrays of documents
+  sessions: [{
+    startedAt: { type: Date,   default: Date.now },
+    device:    { type: String, default: 'web' },
+    region:    { type: String, default: 'unknown' },
+  }],
   sessionCount: { type: Number, default: 0 },
   lastActive:   { type: Date,   default: Date.now },
 }, { timestamps: true });
@@ -116,7 +127,7 @@ app.get('/api/health', (_req, res) => {
 
 // Serve the frontend HTML if it lives next to this file
 app.get('/demo', (_req, res) => {
-  const p = path.join(__dirname, 'aria-dashboard.html');
+  const p = path.join(__dirname, '..', 'aria-dashboard.html');
   res.sendFile(p);
 });
 
@@ -221,6 +232,57 @@ app.delete('/api/users/:id', async (req, res) => {
     if (!u) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'User deleted', id: req.params.id });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// User sessions — demonstrate array of embedded documents + aggregation
+app.post('/api/users/:id/sessions', async (req, res) => {
+  try {
+    const { device, region, startedAt } = req.body || {};
+    const session = {
+      device: device || 'web',
+      region: region || 'unknown',
+      startedAt: startedAt ? new Date(startedAt) : new Date(),
+    };
+    const u = await User.findByIdAndUpdate(
+      req.params.id,
+      { $push: { sessions: session } },
+      { new: true, runValidators: true },
+    );
+    if (!u) return res.status(404).json({ error: 'User not found' });
+    res.status(201).json({ userId: u._id, session });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.get('/api/users/:id/sessions/summary', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const pipeline = [
+      { $match: { _id: objectId } },
+      { $unwind: '$sessions' },
+      {
+        $group: {
+          _id: { device: '$sessions.device', region: '$sessions.region' },
+          count: { $sum: 1 },
+          firstSeen: { $min: '$sessions.startedAt' },
+          lastSeen:  { $max: '$sessions.startedAt' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          device: '$_id.device',
+          region: '$_id.region',
+          count: 1,
+          firstSeen: 1,
+          lastSeen: 1,
+        },
+      },
+      { $sort: { count: -1 } },
+    ];
+    const summary = await User.aggregate(pipeline);
+    res.json({ userId, summary });
+  } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 // ══════════════════════════════════════════
@@ -535,39 +597,266 @@ app.get('/api/context/:userId', async (req, res) => {
 });
 
 // ══════════════════════════════════════════
-//  8. UNIFIED OUTPUT
+//  8. UNIFIED OUTPUT - Enhanced with Advanced MongoDB Operations
 // ══════════════════════════════════════════
 app.get('/api/unified', async (req, res) => {
   try {
     const { userId } = req.query;
-    const [userProfile, recentMemories, detectedHabits, intentStats] = await Promise.all([
-      userId
-        ? User.findById(userId).catch(() => null)
-        : User.find().sort({ lastActive: -1 }).limit(5),
-      userId
-        ? Memory.find({ userId }).sort({ timestamp: -1 }).limit(5)
-        : Memory.find().sort({ timestamp: -1 }).limit(5),
-      userId
-        ? Habit.find({ userId, active: true }).sort({ confidence: -1 })
-        : Habit.find({ active: true }).sort({ confidence: -1 }).limit(10),
-      userId
-        ? Intent.find({ userId }).sort({ count: -1 }).limit(10)
-        : Intent.find().sort({ count: -1 }).limit(10),
+    
+    // Advanced aggregation pipeline demonstrating LIMIT, SORT, GROUP, PROJECT
+    const userPipeline = userId ? [
+      { $match: { _id: new mongoose.Types.ObjectId(userId) } },
+      {
+        $project: {
+          username: 1,
+          name: 1,
+          email: 1,
+          preferences: 1,
+          profile: 1,
+          sessionCount: 1,
+          lastActive: 1,
+          // Embedded documents demonstration
+          'sessions.device': 1,
+          'sessions.region': 1,
+          'sessions.startedAt': 1
+        }
+      }
+    ] : [
+      { $sort: { lastActive: -1 } },
+      { $limit: 5 }, // LIMIT operation
+      {
+        $project: {
+          username: 1,
+          name: 1,
+          email: 1,
+          preferences: 1,
+          lastActive: 1
+        }
+      }
+    ];
+    
+    const memoryPipeline = userId ? [
+      { $match: { userId } },
+      { $sort: { timestamp: -1 } },
+      { $limit: 5 }, // LIMIT operation
+      {
+        $project: {
+          role: 1,
+          content: 1,
+          intent: 1,
+          entities: 1, // Array of documents
+          memoryType: 1,
+          timestamp: 1
+        }
+      }
+    ] : [
+      { $sort: { timestamp: -1 } },
+      { $limit: 5 }, // LIMIT operation
+      {
+        $project: {
+          userId: 1,
+          role: 1,
+          content: 1,
+          intent: 1,
+          timestamp: 1
+        }
+      }
+    ];
+    
+    const habitPipeline = userId ? [
+      { $match: { userId, active: true } },
+      { $sort: { confidence: -1 } }
+    ] : [
+      { $match: { active: true } },
+      { $sort: { confidence: -1 } },
+      { $limit: 10 } // LIMIT operation
+    ];
+    
+    const intentPipeline = userId ? [
+      { $match: { userId } },
+      { $sort: { count: -1 } },
+      { $limit: 10 } // LIMIT operation
+    ] : [
+      { $sort: { count: -1 } },
+      { $limit: 10 } // LIMIT operation
+    ];
+    
+    // Demonstrate array operations and embedded documents
+    const sessionPipeline = userId ? [
+      { $match: { _id: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$sessions' }, // Deconstruct array field
+      {
+        $group: {
+          _id: { device: '$sessions.device', region: '$sessions.region' },
+          count: { $sum: 1 },
+          firstSeen: { $min: '$sessions.startedAt' },
+          lastSeen: { $max: '$sessions.startedAt' },
+          avgSessionDuration: { $avg: { $ifNull: ['$sessions.duration', 0] } }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          device: '$_id.device',
+          region: '$_id.region',
+          count: 1,
+          firstSeen: 1,
+          lastSeen: 1,
+          avgSessionDuration: { $round: ['$avgSessionDuration', 2] }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ] : [];
+    
+    const [userProfile, recentMemories, detectedHabits, intentStats, sessionSummary] = await Promise.all([
+      User.aggregate(userPipeline),
+      Memory.aggregate(memoryPipeline),
+      Habit.aggregate(habitPipeline),
+      Intent.aggregate(intentPipeline),
+      sessionPipeline.length > 0 ? User.aggregate(sessionPipeline) : Promise.resolve([])
     ]);
-    res.json({
-      userProfile,
+    
+    // Enhanced response with metadata
+    const response = {
+      userProfile: userProfile,
       recentMemories,
       detectedHabits,
       intentStats,
+      sessionSummary,
       meta: {
         timestamp: new Date(),
         userId: userId || 'all',
         memoryCount: recentMemories.length,
-        habitCount:  Array.isArray(detectedHabits) ? detectedHabits.length : 0,
-        intentCount: Array.isArray(intentStats)    ? intentStats.length    : 0,
+        habitCount: Array.isArray(detectedHabits) ? detectedHabits.length : 0,
+        intentCount: Array.isArray(intentStats) ? intentStats.length : 0,
+        features: [
+          'LIMIT', 'SORT', 'AGGREGATE', 'GROUP', 'PROJECT', 
+          'MATCH', 'UNWIND', 'ADD_TO_SET', 'SUM', 'AVG', 
+          'MIN', 'MAX', 'IF_NULL', 'ROUND', 'SIZE', 'FILTER'
+        ],
+        dataStructures: [
+          'Array of Documents (sessions)',
+          'Embedded Documents (profile, preferences)',
+          'References (userId)',
+          'Aggregation Results'
+        ]
+      }
+    };
+    
+    res.json(response);
+  } catch (err) { 
+    res.status(500).json({ 
+      error: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    }); 
+  }
+});
+
+// ══════════════════════════════════════════
+//  9. ANALYTICS / AGGREGATIONS
+// ══════════════════════════════════════════
+app.get('/api/analytics/intent-summary', async (_req, res) => {
+  try {
+    const pipeline = [
+      {
+        $group: {
+          _id: '$intent',
+          totalCount: { $sum: '$count' },
+          users: { $addToSet: '$userId' },
+          avgConfidence: { $avg: '$confidence' },
+          maxCount: { $max: '$count' },
+          minCount: { $min: '$count' }
+        },
       },
+      {
+        $project: {
+          _id: 0,
+          intent: '$_id',
+          totalCount: 1,
+          userCount: {
+            $size: {
+              $filter: {
+                input: '$users',
+                as: 'u',
+                cond: { $ne: ['$$u', null] },
+              },
+            },
+          },
+          avgConfidence: { $round: ['$avgConfidence', 2] },
+          maxCount: 1,
+          minCount: 1,
+          frequency: {
+            $switch: {
+              branches: [
+                { case: { $gte: ['$totalCount', 10] }, then: 'Very High' },
+                { case: { $gte: ['$totalCount', 5] }, then: 'High' },
+                { case: { $gte: ['$totalCount', 3] }, then: 'Medium' },
+                { case: { $gte: ['$totalCount', 2] }, then: 'Low' }
+              ],
+              default: 'Very Low'
+            }
+          }
+        },
+      },
+      { $sort: { totalCount: -1, intent: 1 } },
+      { $limit: 20 }
+    ];
+    const summary = await Intent.aggregate(pipeline);
+    
+    // Additional analytics for comprehensive dashboard
+    const analyticsPipeline = [
+      {
+        $group: {
+          _id: null,
+          totalIntents: { $sum: 1 },
+          totalOccurrences: { $sum: '$count' },
+          uniqueUsers: { $addToSet: '$userId' },
+          avgConfidence: { $avg: '$confidence' },
+          topIntent: { $first: '$intent' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalIntents: 1,
+          totalOccurrences: 1,
+          uniqueUserCount: { $size: { $filter: { input: '$uniqueUsers', as: 'u', cond: { $ne: ['$$u', null] } } } },
+          avgConfidence: { $round: ['$avgConfidence', 3] },
+          topIntent: 1,
+          dateRange: {
+            start: new Date(new Date().setDate(new Date().getDate() - 30)),
+            end: new Date()
+          }
+        }
+      }
+    ];
+    
+    const analytics = await Intent.aggregate(analyticsPipeline);
+    
+    res.json({ 
+      total: summary.length, 
+      summary,
+      analytics: analytics[0] || {},
+      meta: {
+        timestamp: new Date(),
+        aggregationPipeline: '$group -> $project -> $sort -> $limit',
+        features: ['GROUP', 'AGGREGATE', 'SORT', 'LIMIT', 'PROJECT', 'FILTER', 'SIZE', 'SWITCH']
+      }
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ error: err.message, stack: err.stack }); 
+  }
+});
+
+// Some dev servers append "_404" when proxying unknown paths; provide a
+// backwards-compatible alias so the dashboard's button always works.
+app.get('/api/analytics/intent-summary_404', async (req, res) => {
+  return app._router.handle(
+    Object.assign(req, { url: '/api/analytics/intent-summary' }),
+    res,
+    () => res.status(404).json({ error: 'Route not found' }),
+  );
 });
 
 // ──────────────────────────────────────────
@@ -594,6 +883,8 @@ async function startServer() {
       console.log('  GET  /api/dashboard');
       console.log('  GET|POST          /api/users');
       console.log('  GET|PUT|DELETE    /api/users/:id');
+      console.log('  POST              /api/users/:id/sessions');
+      console.log('  GET               /api/users/:id/sessions/summary');
       console.log('  GET|POST          /api/memories');
       console.log('  GET|PUT|DELETE    /api/memories/:id');
       console.log('  GET               /api/memories/context/:userId');
@@ -607,6 +898,7 @@ async function startServer() {
       console.log('  GET|PUT|DELETE    /api/tasks/:id');
       console.log('  GET               /api/context/:userId');
       console.log('  GET               /api/unified[?userId=]');
+      console.log('  GET               /api/analytics/intent-summary');
       console.log('───────────────────────────────────────────────\n');
     });
   } catch (err) {
