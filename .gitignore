@@ -6,3 +6,12 @@ yarn-error.log*
 .DS_Store
 .cursor
 *.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
